@@ -46,7 +46,7 @@ fun VistaPreferenciasPanda() {
     var newPassword by remember { mutableStateOf("") }
 
     val es = currentLang == "es"
-    val title = if (es) "Mi Perfil Panda" else "My Panda Profile"
+    val title = if (es) "Panda4" else "My Panda Profile"
     val applyBtn = if (es) "GUARDAR CAMBIOS" else "SAVE CHANGES"
 
     val pandaColors = if (isDarkMode) {
@@ -57,7 +57,6 @@ fun VistaPreferenciasPanda() {
 
     MaterialTheme(
         colorScheme = pandaColors,
-        // CORRECCIÓN: Uso correcto de Shapes en Material3
         shapes = Shapes(
             small = RoundedCornerShape(12.dp),
             medium = RoundedCornerShape(24.dp),
