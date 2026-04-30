@@ -88,7 +88,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = primaryPurple)
         ) {
-            Text("INGRESAR Acceso")
+            Text("INGRESAR ACCESO")
         }
 
         // Botón para ir a registrarse
