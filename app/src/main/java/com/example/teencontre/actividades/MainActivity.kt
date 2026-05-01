@@ -39,16 +39,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             var currentScreen by remember { mutableStateOf("login") }
+            var wizardMode by remember { mutableStateOf("perdi") }
             var isDarkMode by remember { mutableStateOf(false) }
 
-            // Envolvemos TODO con tu función de tema
             TeEncontreTheme(darkTheme = isDarkMode, dynamicColor = false) {
-                // Surface ahora usará el color de fondo que dicte el tema (claro u oscuro)
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Crossfade(targetState = currentScreen) { screen ->
+                    Crossfade(targetState = currentScreen, label = "main_navigation") { screen ->
                         when (screen) {
                             "login" -> LoginScreen(
                                 onLoginSuccess = { currentScreen = "selector" },
@@ -71,12 +70,32 @@ class MainActivity : ComponentActivity() {
                                 content = textoTerminosONS,
                                 onBack = { currentScreen = "register" }
                             )
+                            //Agrero roy para conectar el otro arch.kt
                             "selector" -> CreateAnnouncementScreen(
-                                onEncontreClick = { currentScreen = "wizard" },
-                                onPerdiClick = { /* Lógica */ },
+                                onEncontreClick = {
+                                    wizardMode = "encontre"
+                                    currentScreen = "wizard"
+                                },
+                                onPerdiClick = {
+                                    wizardMode = "perdi"
+                                    currentScreen = "wizard"
+                                },
                                 onProfileClick = { currentScreen = "profile" },
                                 onPublishClick = { currentScreen = "selector" }
                             )
+
+                            "wizard" -> {
+                                // Aquí decidimos qué Composable mostrar según el modo guardado
+                                if (wizardMode == "perdi") {
+                                    WizardCrearAnuncio(
+                                        onBackToSelector = { currentScreen = "selector" }
+                                    )
+                                } else {
+                                    WizardEncontreMascota(
+                                        onBackToSelector = { currentScreen = "selector" }
+                                    )
+                                }
+                            }
                             "profile" -> ProfileScreen(
                                 onLogout = { currentScreen = "login" },
                                 onNavigate = { route -> currentScreen = route }
@@ -94,8 +113,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-
 
 // --- PANTALLA: LOGIN ---
 @Composable

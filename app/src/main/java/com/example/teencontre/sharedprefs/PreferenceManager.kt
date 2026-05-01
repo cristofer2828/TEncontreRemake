@@ -59,6 +59,15 @@ class PreferenceManager(context: Context) {
     fun setNotifications(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_NOTIFICATIONS, enabled).apply()
     }
+    //Guarda los datos de contacto del anuncio de una sola vez
+    fun saveAd(name: String, phone: String, email: String) {
+        prefs.edit().apply {
+            putString(KEY_USER_NAME, name)
+            putString(KEY_PHONE, phone)
+            putString(KEY_EMAIL, email)
+            apply()
+        }
+    }
 
     /**
      * Limpia todas las preferencias
