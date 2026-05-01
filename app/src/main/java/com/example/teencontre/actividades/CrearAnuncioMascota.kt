@@ -67,9 +67,11 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
-                onProfileClick = {},
+                onProfileClick = { },
                 onPublishClick = onBackToSelector,
-                onEncuentranosClick = { })
+                onEncuentranosClick = { },
+                onMapaClick = { } // <-- Agrega esta línea para quitar el error
+            )
         }
     ) { paddingValues ->
         Column(
@@ -149,9 +151,11 @@ fun WizardEncontreMascota(onBackToSelector: () -> Unit) {
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
-                onProfileClick = {},
-                onPublishClick = onBackToSelector,
-                onEncuentranosClick = { })
+                onProfileClick = { /* tu lógica */ },
+                onPublishClick = { /* tu lógica */ },
+                onEncuentranosClick = { /* tu lógica */ },
+                onMapaClick = { } // <-- Agrega esta línea también aquí
+            )
         }
     ) { paddingValues ->
         Column(

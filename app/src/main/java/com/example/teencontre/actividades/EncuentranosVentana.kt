@@ -45,7 +45,8 @@ import com.example.teencontre.R
 @Composable
 fun EncuentranosScreen(
     onProfileClick: () -> Unit,
-    onPublishClick: () -> Unit
+    onPublishClick: () -> Unit,
+    onNavigate: (String) -> Unit
 ) {
 
     // 🔹 Estados de filtros
@@ -64,7 +65,8 @@ fun EncuentranosScreen(
             BottomNavigationBar(
                 onProfileClick = onProfileClick,
                 onPublishClick = onPublishClick,
-                onEncuentranosClick = { }
+                onEncuentranosClick = { /* Ya estamos aquí */ },
+                onMapaClick = { onNavigate("mapa") } // <-- Cambia el { } vacío por esto
             )
         }
     ) { paddingValues ->

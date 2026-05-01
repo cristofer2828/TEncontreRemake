@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -112,6 +113,13 @@ class MainActivity : ComponentActivity() {
                                 onNavigate = { route -> currentScreen = route }
                             )
                             "encuentranos" -> EncuentranosScreen(
+                                onProfileClick = { currentScreen = "profile" },
+                                onPublishClick = { currentScreen = "selector" },
+                                onNavigate = { currentScreen = it } // <--- AGREGAR ESTO
+                            )
+// ...
+                            "mapa" -> MapScreen(
+                                onNavigate = { currentScreen = it },
                                 onProfileClick = { currentScreen = "profile" },
                                 onPublishClick = { currentScreen = "selector" }
                             )
@@ -371,79 +379,121 @@ val textoTerminosONS = """
 @Composable
 fun CreateAnnouncementScreen(
     onEncontreClick: () -> Unit,
-    onPerdiClick: () -> Unit,// Añadimos este parámetro para la lógica de "Perdí"
+    onPerdiClick: () -> Unit,
     onProfileClick: () -> Unit,
     onPublishClick: () -> Unit,
     onNavigate: (String) -> Unit
 ) {
     val primaryPurple = Color(0xFF7C4DFF)
+    // Estado para controlar la visibilidad del diálogo de la burbuja
+    var showDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
-        bottomBar = {
-            BottomNavigationBar(
-                onProfileClick = onProfileClick,
-                onPublishClick = onPublishClick,
-                onEncuentranosClick = { onNavigate("encuentranos") }
-            )
+    // Usamos un Box principal para que la burbuja flote sobre el Scaffold
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            bottomBar = {
+                BottomNavigationBar(
+                    onProfileClick = onProfileClick,
+                    onPublishClick = onPublishClick,
+                    onEncuentranosClick = { onNavigate("encuentranos") },
+                    onMapaClick = { onNavigate("mapa") }
+                )
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // MENSAJE EMOTIVO
+                Text(
+                    text = "Cada acción cuenta para que un corazón vuelva a casa.",
+                    fontSize = 14.sp,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Text(
+                    text = "Crear un anuncio",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(60.dp))
+
+                Text("¿Que ha pasado?", fontSize = 16.sp)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // BOTÓN: PERDÍ A MI MASCOTA
+                Button(
+                    onClick = onPerdiClick,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryPurple)
+                ) {
+                    Text("Perdí a mi mascota", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // BOTÓN: ENCONTRÉ A MI MASCOTA
+                OutlinedButton(
+                    onClick = onEncontreClick,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, primaryPurple)
+                ) {
+                    Text("Encontre mascota", color = primaryPurple, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
         }
-    ) { paddingValues ->
-        Column(
+
+        // --- COMPONENTE DE LA BURBUJA (FLOTANTE) ---
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .align(Alignment.TopStart)
+                .padding(top = 45.dp, start = 0.dp) // start=0 para que pegue al borde izquierdo
+                .size(70.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+                .clickable { showDialog = true },
+            contentAlignment = Alignment.Center
         ) {
-            // MENSAJE EMOTIVO
-            Text(
-                text = "Cada acción cuenta para que un corazón vuelva a casa.",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 8.dp)
+            Image(
+                painter = painterResource(id = R.drawable.adopta),
+                contentDescription = "Adopta",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop // Evita que la imagen se deforme
             )
-
-            Text(
-                text = "Crear un anuncio",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(60.dp))
-
-            Text("¿Que ha pasado?", fontSize = 16.sp)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // BOTÓN: PERDÍ A MI MASCOTA
-            Button(
-                onClick = onPerdiClick,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = primaryPurple)
-            ) {
-                Text("Perdí a mi mascota", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // BOTÓN: ENCONTRÉ A MI MASCOTA
-            OutlinedButton(
-                onClick = onEncontreClick,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, primaryPurple)
-            ) {
-                Text("Encontre mascota", color = primaryPurple, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            }
         }
+    }
+
+    // Ventana emergente de información
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Adopta con responsabilidad", fontWeight = FontWeight.Bold) },
+            text = { Text("Adoptar una mascota es un compromiso de amor, cuidado y respeto. Asegúrate de brindar un hogar seguro.") },
+            confirmButton = {
+                Button(
+                    onClick = { showDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryPurple)
+                ) {
+                    Text("Entendido")
+                }
+            }
+        )
     }
 }
 
 @Composable
-fun BottomNavigationBar(onProfileClick: () -> Unit, onPublishClick: () -> Unit, onEncuentranosClick: () -> Unit) {
+fun BottomNavigationBar(onProfileClick: () -> Unit, onPublishClick: () -> Unit, onEncuentranosClick: () -> Unit, onMapaClick: () -> Unit) {
     // Definimos los colores basados en el tema actual
     val backgroundColor = MaterialTheme.colorScheme.surface
     val selectedColor = Color(0xFF7C4DFF)
@@ -473,7 +523,8 @@ fun BottomNavigationBar(onProfileClick: () -> Unit, onPublishClick: () -> Unit, 
             icon = android.R.drawable.ic_dialog_map,
             label = "Mapa",
             color = unselectedColor,
-            onClick = { /* Próximamente */ }
+            // CAMBIO AQUÍ: Ahora sí ejecutamos la función que pasamos por parámetro
+            onClick = onMapaClick
         )
         NavigationItem(
             icon = android.R.drawable.ic_menu_myplaces,
@@ -552,7 +603,8 @@ fun ProfileScreen(
             BottomNavigationBar(
                 onProfileClick = { /* Ya estamos aquí */ },
                 onPublishClick = { onNavigate("selector") },
-                onEncuentranosClick = { onNavigate("encuentranos") }
+                onEncuentranosClick = { onNavigate("encuentranos") },
+                onMapaClick = { onNavigate("mapa") } // <-- Agrega esta línea
             )
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -675,7 +727,8 @@ fun SettingsScreen(
             BottomNavigationBar(
                 onProfileClick = { /* Ya estamos en el flujo de perfil */ },
                 onPublishClick = { onNavigate("selector") },
-                onEncuentranosClick = { onNavigate("encuentranos") }
+                onEncuentranosClick = { onNavigate("encuentranos") },
+                onMapaClick = { onNavigate("mapa") } // <-- Agrega esta línea
             )
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -696,7 +749,7 @@ fun SettingsScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "← AtrásCAMBIOCTRLZ",
+                        "← Atrás",
                         fontSize = 16.sp,
                         color = MaterialTheme.colorScheme.primary
                     )
