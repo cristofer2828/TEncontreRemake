@@ -47,7 +47,13 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
     val prefs = remember { PreferenceManager(context) }
     var step by remember { mutableIntStateOf(1) }
 
-    // Estados de Datos
+    // --- ESTADOS DE CONTROL DE INTERFAZ (Corrección de image_052f7a.png) ---
+    var showPhotoSheet by remember { mutableStateOf(false) }
+    var showDescSheet by remember { mutableStateOf(false) }
+
+    // --- ESTADOS DE DATOS ---
+    var nombreMascota by remember { mutableStateOf("") }
+    var razaMascota by remember { mutableStateOf("") }
     var petType by remember { mutableStateOf("Perro") }
     var gender by remember { mutableStateOf("Hembra") }
     var location by remember { mutableStateOf("") }
@@ -60,17 +66,13 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
     var contactEmail by remember { mutableStateOf(prefs.getEmail()) }
     var acceptedTerms by remember { mutableStateOf(false) }
 
-    var showPhotoSheet by remember { mutableStateOf(false) }
-    var showAddressSheet by remember { mutableStateOf(false) }
-    var showDescSheet by remember { mutableStateOf(false) }
-
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
-                onProfileClick = { },
+                onProfileClick = { /* Navegar al perfil si es necesario */ },
                 onPublishClick = onBackToSelector,
                 onEncuentranosClick = { },
-                onMapaClick = { } // <-- Agrega esta línea para quitar el error
+                onMapaClick = { }
             )
         }
     ) { paddingValues ->
@@ -79,50 +81,92 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState()), // HABILITA SCROLL
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(40.dp))
+
+            // Indicador de progreso superior
             ProgressCircle(step = step)
+
             Spacer(modifier = Modifier.height(24.dp))
-            Text(text = if (step < 6) "Mascota Perdida" else "Hecho", fontSize = 24.sp, fontWeight = FontWeight.Black)
+
+            Text(
+                text = if (step < 6) "Mascota Perdida" else "Hecho",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black
+            )
+
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Contenedor dinámico de pasos
             Box(modifier = Modifier.fillMaxWidth()) {
                 when (step) {
-                    1 -> PasoMascota(petType, gender, { petType = it }, { gender = it })
+                    1 -> PasoMascota(nombre = nombreMascota, raza = razaMascota, type = petType, gen = gender, onNombre = { nombreMascota = it }, onRaza = { razaMascota = it }, onType = { petType = it }, onGen = { gender = it })
                     2 -> PasoFoto(selectedPhotos) { selectedPhotos = it }
                     3 -> PasoUbicacion(location, selectedDate, { location = it }, { selectedDate = it })
                     4 -> PasoDescripcion(description) { description = it }
-                    5 -> PasoContacto(contactName, contactPhone, contactEmail, acceptedTerms, { contactName = it }, { contactPhone = it }, { contactEmail = it }, { acceptedTerms = it })
+                    5 -> PasoContacto(
+                        contactName, contactPhone, contactEmail, acceptedTerms,
+                        { contactName = it }, { contactPhone = it }, { contactEmail = it }, { acceptedTerms = it }
+                    )
                     6 -> PantallaHecho(onBackToSelector)
                 }
             }
 
+            // Botones de navegación (solo visibles del paso 1 al 5)
             if (step in 1..5) {
                 Spacer(modifier = Modifier.height(24.dp))
                 NavigationButtons(
                     step = step,
                     accepted = acceptedTerms,
                     onNext = {
-                        if (step == 3) showAddressSheet = true
-                        else if (step < 5) step++
-                        else { prefs.saveAd(contactName, contactPhone, contactEmail); step = 6 }
+                        if (step < 5) {
+                            step++
+                        } else {
+                            // Guardado definitivo en SharedPreferences con etiqueta PERDIDA
+                            prefs.saveAd(
+                                contactName ?: "",
+                                contactPhone ?: "",
+                                contactEmail ?: "",
+                                "PERDIDA"
+                            )
+                            step = 6
+                        }
                     },
-                    onBack = { if (step > 1) step-- else onBackToSelector() },
+                    onBack = {
+                        if (step > 1) step-- else onBackToSelector()
+                    },
                     onOmit = {
+                        // Lógica para mostrar advertencias al omitir pasos opcionales
                         if (step == 2) showPhotoSheet = true
                         if (step == 4) showDescSheet = true
                     }
                 )
             }
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
-    if (showPhotoSheet) CustomBottomSheet("¿Absolutamente ninguna foto?", "Una foto en un anuncio aumenta significativamente las posibilidades de encontrar una mascota.", "Añadir Foto", "Omitir", { showPhotoSheet = false }, { showPhotoSheet = false; step = 3 })
-    if (showAddressSheet) CustomBottomSheet("¿Es la dirección correcta?", "Una dirección incorrecta reducirá la efectividad de su solicitud de mascota.", "Sí, es cierto", "No, quiero cambiar", { showAddressSheet = false; step = 4 }, { showAddressSheet = false })
-    if (showDescSheet) CustomBottomSheet("¿Sin descripción?", "Una descripción puede acelerar el proceso de encontrar a su mascota.", "Añadir una descripción", "Omitir", { showDescSheet = false }, { showDescSheet = false; step = 5 })
+    // --- COMPONENTES EMERGENTES (BottomSheets) ---
+    if (showPhotoSheet) {
+        OmitirFotoSheet(
+            onDismiss = { showPhotoSheet = false },
+            onConfirm = {
+                showPhotoSheet = false
+                step++
+            }
+        )
+    }
+
+    if (showDescSheet) {
+        OmitirDescripcionSheet(
+            onDismiss = { showDescSheet = false },
+            onConfirm = {
+                showDescSheet = false
+                step++
+            }
+        )
+    }
 }
 
 // --- WIZARD 2: ENCONTRÉ UNA MASCOTA ---
@@ -133,6 +177,9 @@ fun WizardEncontreMascota(onBackToSelector: () -> Unit) {
     val prefs = remember { PreferenceManager(context) }
     var step by remember { mutableIntStateOf(1) }
 
+    var showPhotoSheet by remember { mutableStateOf(false) }
+    var showDescSheet by remember { mutableStateOf(false) }
+
     var petType by remember { mutableStateOf("Perro") }
     var gender by remember { mutableStateOf("Hembra") }
     var location by remember { mutableStateOf("") }
@@ -144,26 +191,18 @@ fun WizardEncontreMascota(onBackToSelector: () -> Unit) {
     var contactEmail by remember { mutableStateOf(prefs.getEmail()) }
     var acceptedTerms by remember { mutableStateOf(false) }
 
-    var showPhotoSheet by remember { mutableStateOf(false) }
-    var showAddressSheet by remember { mutableStateOf(false) }
-    var showDescSheet by remember { mutableStateOf(false) }
-
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
-                onProfileClick = { /* tu lógica */ },
-                onPublishClick = { /* tu lógica */ },
-                onEncuentranosClick = { /* tu lógica */ },
-                onMapaClick = { } // <-- Agrega esta línea también aquí
+                onProfileClick = { },
+                onPublishClick = onBackToSelector,
+                onEncuentranosClick = { },
+                onMapaClick = { }
             )
         }
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState()), // HABILITA SCROLL
+            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 24.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(40.dp))
@@ -189,9 +228,12 @@ fun WizardEncontreMascota(onBackToSelector: () -> Unit) {
                     step = step,
                     accepted = acceptedTerms,
                     onNext = {
-                        if (step == 3) showAddressSheet = true
-                        else if (step < 5) step++
-                        else step = 6
+                        if (step < 5) step++
+                        else {
+                            // Se agrega el parámetro "ENCONTRADA"
+                            prefs.saveAd(contactName, contactPhone, contactEmail, "ENCONTRADA")
+                            step = 6
+                        }
                     },
                     onBack = { if (step > 1) step-- else onBackToSelector() },
                     onOmit = {
@@ -200,13 +242,11 @@ fun WizardEncontreMascota(onBackToSelector: () -> Unit) {
                     }
                 )
             }
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
-    if (showPhotoSheet) CustomBottomSheet("¿Seguro que no hay fotos?", "Las fotos ayudan al dueño a reconocer a su mascota.", "Añadir una foto", "Omitir", { showPhotoSheet = false }, { showPhotoSheet = false; step = 3 })
-    if (showAddressSheet) CustomBottomSheet("¿Es correcta la dirección?", "Es importante para que el dueño sepa dónde buscar.", "Sí, es cierto", "No, quiero cambiar", { showAddressSheet = false; step = 4 }, { showAddressSheet = false })
-    if (showDescSheet) CustomBottomSheet("¿Está seguro?", "Cualquier detalle (collar, color) ayuda mucho.", "Añadir una descripción", "Omitir", { showDescSheet = false }, { showDescSheet = false; step = 5 })
+    if (showPhotoSheet) OmitirFotoSheet(onDismiss = { showPhotoSheet = false }, onConfirm = { showPhotoSheet = false; step = 3 })
+    if (showDescSheet) OmitirDescripcionSheet(onDismiss = { showDescSheet = false }, onConfirm = { showDescSheet = false; step = 5 })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -216,34 +256,39 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
     val prefs = remember { PreferenceManager(context) }
     var step by remember { mutableIntStateOf(1) }
 
-    // --- ESTADOS DE DATOS (image_11f5d9.png) ---
-    var petName by remember { mutableStateOf("") }
+    // Control de advertencias
+    var showPhotoSheet by remember { mutableStateOf(false) }
+
+    // --- ESTADOS DE DATOS ---
+    // Paso 1: Mascota
+    var nombreMascota by remember { mutableStateOf("") }
+    var razaMascota by remember { mutableStateOf("") }
     var petType by remember { mutableStateOf("Perro") }
     var gender by remember { mutableStateOf("Hembra") }
-    var breed by remember { mutableStateOf("") }
 
-    var isVaccinated by remember { mutableStateOf(false) }
-    var isSterilized by remember { mutableStateOf(false) }
-    var isDewormed by remember { mutableStateOf(false) }
+    // Paso 2: Salud
+    var vacunado by remember { mutableStateOf(false) }
+    var esterilizado by remember { mutableStateOf(false) }
+    var desparasitado by remember { mutableStateOf(false) }
 
-    var selectedSize by remember { mutableStateOf("Mediano") }
-    var temperament by remember { mutableStateOf("Tranquilo") }
+    // Paso 3: Características
+    var tamano by remember { mutableStateOf("Mediano") }
+    var temperamento by remember { mutableStateOf("Tranquilo") }
 
+    // Paso 4: Fotos y Descripción
     var selectedPhotos by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var description by remember { mutableStateOf("") }
 
-    var orgName by remember { mutableStateOf("") }
-    var contactPhone by remember { mutableStateOf("") }
-    var contactEmail by remember { mutableStateOf("") }
+    // Paso 5: Contacto (Organización)
+    var contactName by remember { mutableStateOf(prefs.getUserName() ?: "") }
+    var contactPhone by remember { mutableStateOf(prefs.getPhone() ?: "") }
+    var contactEmail by remember { mutableStateOf(prefs.getEmail() ?: "") }
     var acceptedTerms by remember { mutableStateOf(false) }
 
-    var showPhotoSheet by remember { mutableStateOf(false) }
-
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             BottomNavigationBar(
-                onProfileClick = { },
+                onProfileClick = { /* Opcional: Navegar al perfil */ },
                 onPublishClick = onBackToSelector,
                 onEncuentranosClick = { },
                 onMapaClick = { }
@@ -260,33 +305,40 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
         ) {
             Spacer(modifier = Modifier.height(40.dp))
             ProgressCircle(step = step)
-            Spacer(modifier = Modifier.height(24.dp))
 
+            Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = if (step < 6) {
-                    when(step) {
-                        1 -> "Mascota en adopción"
-                        2 -> "Estado de salud"
-                        3 -> "Características"
-                        4 -> "Fotos de la mascota"
-                        5 -> "Contáctanos"
-                        else -> ""
-                    }
-                } else "Hecho",
+                text = if (step < 6) "Mascota en adopción" else "¡Publicado!",
                 fontSize = 24.sp,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onBackground
+                fontWeight = FontWeight.Black
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
             Box(modifier = Modifier.fillMaxWidth()) {
                 when (step) {
-                    1 -> PasoMascotaAdopcion(petName, petType, gender, breed, { petName = it }, { petType = it }, { gender = it }, { breed = it })
-                    2 -> PasoSalud(isVaccinated, isSterilized, isDewormed, { isVaccinated = it }, { isSterilized = it }, { isDewormed = it })
-                    3 -> PasoCaracteristicas(selectedSize, temperament, { selectedSize = it }, { temperament = it })
-                    4 -> PasoFotoYDesc(selectedPhotos, description, { selectedPhotos = it }, { description = it })
-                    5 -> PasoContactoOrg(orgName, contactPhone, contactEmail, acceptedTerms, { orgName = it }, { contactPhone = it }, { contactEmail = it }, { acceptedTerms = it })
+                    1 -> PasoMascota(
+                        nombre = nombreMascota, raza = razaMascota, type = petType, gen = gender,
+                        onNombre = { nombreMascota = it }, onRaza = { razaMascota = it },
+                        onType = { petType = it }, onGen = { gender = it }
+                    )
+                    2 -> PasoSalud(
+                        v = vacunado, s = esterilizado, d = desparasitado,
+                        onV = { vacunado = it }, onS = { esterilizado = it }, onD = { desparasitado = it }
+                    )
+                    3 -> PasoCaracteristicas(
+                        size = tamano, temp = temperamento,
+                        onSize = { tamano = it }, onTemp = { temperamento = it }
+                    )
+                    4 -> PasoFotoYDesc(
+                        photos = selectedPhotos, desc = description,
+                        onPhotos = { selectedPhotos = it }, onDesc = { description = it }
+                    )
+                    5 -> PasoContactoOrg(
+                        name = contactName, phone = contactPhone, email = contactEmail, terms = acceptedTerms,
+                        onName = { contactName = it }, onPhone = { contactPhone = it },
+                        onEmail = { contactEmail = it }, onTerms = { acceptedTerms = it }
+                    )
                     6 -> PantallaHechoAdopcion(onBackToSelector)
                 }
             }
@@ -295,26 +347,35 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                 Spacer(modifier = Modifier.height(24.dp))
                 NavigationButtons(
                     step = step,
+                    // Solo obligamos a aceptar términos en el último paso (5)
                     accepted = if (step == 5) acceptedTerms else true,
                     onNext = {
-                        if (step < 5) step++
-                        else {
-                            prefs.saveAd(orgName, contactPhone, contactEmail)
+                        if (step < 5) {
+                            step++
+                        } else {
+                            prefs.saveAd(contactName, contactPhone, contactEmail, "ADOPCIÓN")
                             step = 6
                         }
                     },
-                    onBack = { if (step > 1) step-- else onBackToSelector() },
+                    onBack = {
+                        if (step > 1) step-- else onBackToSelector()
+                    },
                     onOmit = {
-                        if (step in 2..4) step++
+                        if (step == 4) showPhotoSheet = true
                     }
                 )
             }
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
     if (showPhotoSheet) {
-        CustomBottomSheet("¿Sin fotos?", "Un anuncio con fotos es más efectivo.", "Añadir", "Omitir", { showPhotoSheet = false }, { showPhotoSheet = false; step = 5 })
+        OmitirFotoSheet(
+            onDismiss = { showPhotoSheet = false },
+            onConfirm = {
+                showPhotoSheet = false
+                step = 5
+            }
+        )
     }
 }
 // --- COMPONENTES DE APOYO ---
@@ -471,14 +532,59 @@ fun CustomInput(label: String, value: String, onValueChange: (String) -> Unit, p
 }
 // --- PASOS ESPECÍFICOS ---
 @Composable
-fun PasoMascota(type: String, gen: String, onType: (String) -> Unit, onGen: (String) -> Unit) {
-    Column {
-        Text("¿Qué mascota es?", fontWeight = FontWeight.Bold)
-        Text("Por favor, indique el tipo y sexo de su mascota", color = TextGray, fontSize = 13.sp)
+fun PasoMascota(
+    nombre: String,          // Nuevo
+    raza: String,            // Nuevo
+    type: String,
+    gen: String,
+    onNombre: (String) -> Unit, // Nuevo
+    onRaza: (String) -> Unit,   // Nuevo
+    onType: (String) -> Unit,
+    onGen: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        // Títulos
+        Text("¿Qué mascota es?", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text("Por favor, indique el tipo y sexo de su mascota", color = Color.Gray, fontSize = 13.sp)
+
         Spacer(Modifier.height(24.dp))
+
+        // Campo: Nombre de la mascota
+        Text("Nombre de la mascota", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        OutlinedTextField(
+            value = nombre,
+            onValueChange = onNombre,
+            placeholder = { Text("Nombre", color = Color.LightGray) },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            shape = RoundedCornerShape(8.dp),
+            singleLine = true
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        // Selectores de Tipo (Perro/Gato) y Género (Hembra/Macho)
+        // Usamos el componente que ya tienes definido
         SelectorDoble("Mascota", "Perro" to "Gato", type, onType)
-        Spacer(Modifier.height(16.dp))
-        SelectorDoble("Género", "Hembra" to "Macho", gen, onGen)
+
+        Spacer(Modifier.height(12.dp))
+
+        SelectorDoble("Genero", "Hembra" to "Macho", gen, onGen)
+
+        Spacer(Modifier.height(12.dp))
+
+        // Campo: Raza
+        Text("Raza", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        OutlinedTextField(
+            value = raza,
+            onValueChange = onRaza,
+            placeholder = { Text("Raza de la mascota", color = Color.LightGray) },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            shape = RoundedCornerShape(8.dp),
+            singleLine = true
+        )
     }
 }
 
@@ -526,15 +632,15 @@ fun PasoUbicacion(loc: String, date: Long, onLoc: (String) -> Unit, onDate: (Lon
     }
     Column {
         Text("¿Dónde lo perdiste?", fontWeight = FontWeight.Bold)
-        Text("Por favor, indique la fecha y el lugar donde perdió a su mascota", color = TextGray, fontSize = 13.sp)
+        Text("Por favor, indique la fecha y el lugar donde Perdio a la mascota.\u2028\u2028", color = TextGray, fontSize = 13.sp)
         Spacer(Modifier.height(16.dp))
-        OutlinedCard(Modifier.fillMaxWidth(), border = BorderStroke(1.dp, BorderGray)) {
+        OutlinedCard(Modifier.fillMaxWidth().clickable { showPicker = true }, border = BorderStroke(1.dp, BorderGray)) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(sdf.format(Date(date)), Modifier.weight(1f))
                 Icon(Icons.Default.KeyboardArrowDown, null, tint = TextGray)
             }
         }
-        CustomInput("Especificar ubicación", value = loc, onValueChange = onLoc, placeholder = "Ejemplo: Miraflores, Lima...")
+        CustomInput("Ubicación", loc, onLoc, "Ejemplo: Cerca al Real Plaza...")
     }
 }
 
@@ -944,6 +1050,40 @@ fun PantallaHechoAdopcion(onFinish: () -> Unit) {
             shape = RoundedCornerShape(12.dp)
         ) {
             Text("Abrir anuncio", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OmitirFotoSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.padding(24.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("¿Seguro que no quieres subir una foto?", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("Las publicaciones con foto reciben 3 veces más atención.", modifier = Modifier.padding(vertical = 8.dp))
+            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Añadir Foto") }
+            TextButton(onClick = onConfirm) { Text("Omitir de todas formas", color = Color.Gray) }
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OmitirDescripcionSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.padding(24.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Descripción incompleta", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("Dar detalles ayuda a identificar a la mascota más rápido.", modifier = Modifier.padding(vertical = 8.dp))
+            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Escribir detalles") }
+            TextButton(onClick = onConfirm) { Text("Omitir", color = Color.Gray) }
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }

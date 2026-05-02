@@ -15,6 +15,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +41,7 @@ import com.example.teencontre.ui.theme.TeEncontreTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.teencontre.sharedprefs.PreferenceManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -44,6 +51,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            val context = LocalContext.current
+            // Inicializamos PreferenceManager una sola vez para toda la App
+            val prefs = remember { PreferenceManager(context) }
+
             var currentScreen by remember { mutableStateOf("login") }
             var wizardMode by remember { mutableStateOf("perdi") }
             var isDarkMode by remember { mutableStateOf(false) }
@@ -66,16 +77,6 @@ class MainActivity : ComponentActivity() {
                                     currentScreen = if (isOns) "terms_ons" else "terms_user"
                                 }
                             )
-                            "terms_user" -> TermsFrame(
-                                title = "Términos de Usuario",
-                                content = textoTerminosUsuario,
-                                onBack = { currentScreen = "register" }
-                            )
-                            "terms_ons" -> TermsFrame(
-                                title = "Términos para Organizaciones",
-                                content = textoTerminosONS,
-                                onBack = { currentScreen = "register" }
-                            )
                             "selector" -> {
                                 CreateAnnouncementScreen(
                                     onEncontreClick = {
@@ -87,7 +88,7 @@ class MainActivity : ComponentActivity() {
                                         currentScreen = "wizard"
                                     },
                                     onAdopcionClick = {
-                                        wizardMode = "adopcion" // Correcto: activamos el modo adopción
+                                        wizardMode = "adopcion"
                                         currentScreen = "wizard"
                                     },
                                     onProfileClick = { currentScreen = "profile" },
@@ -95,31 +96,40 @@ class MainActivity : ComponentActivity() {
                                     onNavigate = { currentScreen = it }
                                 )
                             }
-
                             "wizard" -> {
-                                // Usamos un 'when' para que sea más limpio y soporte los 3 modos
                                 when (wizardMode) {
-                                    "perdi" -> {
-                                        WizardCrearAnuncio(
-                                            onBackToSelector = { currentScreen = "selector" }
-                                        )
-                                    }
-                                    "encontre" -> {
-                                        WizardEncontreMascota(
-                                            onBackToSelector = { currentScreen = "selector" }
-                                        )
-                                    }
-                                    "adopcion" -> {
-                                        // AQUÍ LLAMAS AL NUEVO ARCHIVO/COMPOSABLE:
-                                        WizardCrearAdopcion(
-                                            onBackToSelector = { currentScreen = "selector" }
-                                        )
-                                    }
+                                    "perdi" -> WizardCrearAnuncio(
+                                        onBackToSelector = { currentScreen = "selector" }
+                                    )
+                                    "encontre" -> WizardEncontreMascota(
+                                        onBackToSelector = { currentScreen = "selector" }
+                                    )
+                                    "adopcion" -> WizardCrearAdopcion(
+                                        onBackToSelector = { currentScreen = "selector" }
+                                    )
                                 }
                             }
                             "profile" -> ProfileScreen(
+                                prefs = prefs,
                                 onLogout = { currentScreen = "login" },
-                                onNavigate = { route -> currentScreen = route }
+                                onNavigate = { route ->
+                                    // Lógica para interceptar la edición desde el perfil
+                                    when(route) {
+                                        "wizard_perdi" -> {
+                                            wizardMode = "perdi"
+                                            currentScreen = "wizard"
+                                        }
+                                        "wizard_encontre" -> {
+                                            wizardMode = "encontre"
+                                            currentScreen = "wizard"
+                                        }
+                                        "wizard_adopcion" -> {
+                                            wizardMode = "adopcion"
+                                            currentScreen = "wizard"
+                                        }
+                                        else -> currentScreen = route
+                                    }
+                                }
                             )
                             "settings" -> SettingsScreen(
                                 isDarkMode = isDarkMode,
@@ -130,9 +140,8 @@ class MainActivity : ComponentActivity() {
                             "encuentranos" -> EncuentranosScreen(
                                 onProfileClick = { currentScreen = "profile" },
                                 onPublishClick = { currentScreen = "selector" },
-                                onNavigate = { currentScreen = it } // <--- AGREGAR ESTO
+                                onNavigate = { currentScreen = it }
                             )
-// ...
                             "mapa" -> MapScreen(
                                 onNavigate = { currentScreen = it },
                                 onProfileClick = { currentScreen = "profile" },
@@ -142,12 +151,23 @@ class MainActivity : ComponentActivity() {
                                 onBack = { currentScreen = "encuentranos" },
                                 onNavigate = { currentScreen = it }
                             )
+                            "terms_user" -> TermsFrame(
+                                title = "Términos de Usuario",
+                                content = textoTerminosUsuario,
+                                onBack = { currentScreen = "register" }
+                            )
+                            "terms_ons" -> TermsFrame(
+                                title = "Términos para Organizaciones",
+                                content = textoTerminosONS,
+                                onBack = { currentScreen = "register" }
+                            )
                         }
                     }
                 }
             }
         }
     }
+
 }
 
 
@@ -692,16 +712,23 @@ fun LoginInput(
 }
 @Composable
 fun ProfileScreen(
+    prefs: PreferenceManager,
     onLogout: () -> Unit,
     onNavigate: (String) -> Unit
 ) {
+    var savedAd by remember { mutableStateOf<Map<String, String>?>(null) }
+
+    LaunchedEffect(key1 = Unit) {
+        savedAd = prefs.getSavedAd()
+    }
+
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
                 onProfileClick = { /* Ya estamos aquí */ },
                 onPublishClick = { onNavigate("selector") },
                 onEncuentranosClick = { onNavigate("encuentranos") },
-                onMapaClick = { onNavigate("mapa") } // <-- Agrega esta línea
+                onMapaClick = { onNavigate("mapa") }
             )
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -713,21 +740,18 @@ fun ProfileScreen(
                 .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
-
+            Spacer(modifier = Modifier.height(40.dp))
             Text(
                 text = "Mi perfil",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                // onBackground será blanco en modo oscuro
                 color = MaterialTheme.colorScheme.onBackground
             )
-            // tarjeta de opciones
-            ProfileOptionsCard(onNavigate = onNavigate)
 
+            Spacer(modifier = Modifier.height(24.dp))
+            ProfileOptionsCard(onNavigate = onNavigate)
             Spacer(modifier = Modifier.height(32.dp))
 
-            // SECCIÓN: Mis Anuncios
             Text(
                 text = "Mis anuncios",
                 fontSize = 20.sp,
@@ -737,43 +761,212 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Aquí va la lista de anuncios o un mensaje de "vacío"
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            // --- LÓGICA DINÁMICA DE ANUNCIOS CORREGIDA ---
+            if (savedAd != null) {
+                val adType = savedAd!!["type"] ?: ""
+
+                AdItemCard(
+                    description = savedAd!!["name"] ?: "Sin nombre",
+                    status = adType,
+                    location = "Registrado recientemente",
+                    onEdit = {
+                        // Enviamos la ruta especial que el NavHost ahora sabe interpretar
+                        when (adType.uppercase()) {
+                            "PERDIDA" -> onNavigate("wizard_perdi")
+                            "ENCONTRADA" -> onNavigate("wizard_encontre")
+                            "ADOPCIÓN" -> onNavigate("wizard_adopcion")
+                            else -> onNavigate("selector")
+                        }
+                    },
+                    onDelete = {
+                        prefs.clearAll()
+                        savedAd = null
+                    }
                 )
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "Aún no tienes anuncios publicados",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 14.sp
-                    )
-                }
+            } else {
+                // Estado vacío cuando no hay anuncios
+                NoAdsCard()
             }
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // BOTÓN DE CERRAR SESIÓN
             Button(
                 onClick = onLogout,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                )
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .width(200.dp)
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD96666)),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Cerrar Sesión")
+                Text("Cerrar sesion", fontWeight = FontWeight.Bold, color = Color.White)
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+}
+
+@Composable
+fun NoAdsCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Aún no tienes anuncios publicados",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+// 5. ASEGURA QUE ESTA FUNCIÓN ESTÉ ASÍ PARA LA NAVEGACIÓN
+@Composable
+fun QuickActionsCard(onNavigate: (String) -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            // "settings" debe coincidir con el string en tu MainActivity
+            QuickActionItem(Icons.Default.Settings, "Ajustes") { onNavigate("settings") }
+            QuickActionItem(Icons.Default.AddCircle, "Crear") { onNavigate("selector") }
+            QuickActionItem(Icons.Default.Favorite, "Seleccionado") { /* Lógica futura */ }
+        }
+    }
+}
+
+@Composable
+fun AdItemCard(
+    description: String,
+    status: String,
+    location: String,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Miniatura de imagen
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Gray)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                // Título/Nombre de la mascota
+                Text(
+                    text = description,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                // --- COLOR DINÁMICO SEGÚN EL TIPO (Corrigiendo image_0361fa.png) ---
+                Text(
+                    text = status.uppercase(),
+                    color = when (status.uppercase()) {
+                        "PERDIDA" -> Color(0xFF7C4DFF) // Púrpura como en tu imagen
+                        "ENCONTRADA" -> Color(0xFF4CAF50) // Verde
+                        "ADOPCIÓN" -> Color(0xFF2196F3) // Azul
+                        else -> Color(0xFF7C4DFF)
+                    },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = location,
+                    color = Color.Gray,
+                    fontSize = 11.sp
+                )
+            }
+
+            // Columna de acciones
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                IconButton(
+                    onClick = { onEdit() }, // Se invoca la función de navegación
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Editar anuncio",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                IconButton(
+                    onClick = { onDelete() },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Eliminar anuncio",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickActionItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(8.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            modifier = Modifier.size(32.dp),
+            tint = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
