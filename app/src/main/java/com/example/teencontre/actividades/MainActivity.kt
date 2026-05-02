@@ -1189,12 +1189,6 @@ fun ProfileOptionsCard(onNavigate: (String) -> Unit) {
                 label = "Crear",
                 onClick = { onNavigate("selector") }
             )
-
-            ProfileOptionItem(
-                icon = android.R.drawable.btn_star_big_on,
-                label = "Seleccionado",
-                onClick = { /* Lógica futura */ }
-            )
         }
     }
 }

@@ -172,7 +172,6 @@ fun EncuentranosScreen(
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
-                repeat(4) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -185,7 +184,7 @@ fun EncuentranosScreen(
                         Row(modifier = Modifier.padding(10.dp)) {
 
                             Image(
-                                painter = painterResource(id = R.drawable.logo_perros),
+                                painter = painterResource(id = R.drawable.mascota1),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .size(70.dp)
@@ -202,7 +201,64 @@ fun EncuentranosScreen(
                             }
                         }
                     }
-                }
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .clickable {
+                                onNavigate("detalle_anuncio")
+                            },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp)) {
+
+                            Image(
+                                painter = painterResource(id = R.drawable.mascota2),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(70.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+
+                            Column(
+                                modifier = Modifier.padding(start = 10.dp)
+                            ) {
+                                Text("[DESCRIPCION]", fontWeight = FontWeight.Bold)
+                                Text("ESTADO", color = Color(0xFF7C4DFF))
+                                Text("Ubicación, fecha", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .clickable {
+                                onNavigate("detalle_anuncio")
+                            },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp)) {
+
+                            Image(
+                                painter = painterResource(id = R.drawable.mascota3),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(70.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+
+                            Column(
+                                modifier = Modifier.padding(start = 10.dp)
+                            ) {
+                                Text("[DESCRIPCION]", fontWeight = FontWeight.Bold)
+                                Text("ESTADO", color = Color(0xFF7C4DFF))
+                                Text("Ubicación, fecha", fontSize = 12.sp)
+                            }
+                        }
+                    }
             }
         }
     }

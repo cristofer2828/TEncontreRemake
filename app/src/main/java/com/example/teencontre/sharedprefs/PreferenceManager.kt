@@ -7,8 +7,6 @@ class PreferenceManager(context: Context) {
 
     companion object {
         private const val PREFS_NAME = "user_settings_panda"
-        private const val KEY_DARK_MODE = "dark_mode"
-        private const val KEY_LANGUAGE = "language"
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_PHONE = "phone"
         private const val KEY_EMAIL = "email"
@@ -17,13 +15,6 @@ class PreferenceManager(context: Context) {
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
-    // --- CONFIGURACIÓN DE INTERFAZ ---
-    fun isDarkMode(): Boolean = prefs.getBoolean(KEY_DARK_MODE, false)
-    fun setDarkMode(enabled: Boolean) { prefs.edit().putBoolean(KEY_DARK_MODE, enabled).apply() }
-
-    fun getLanguage(): String = prefs.getString(KEY_LANGUAGE, "es") ?: "es"
-    fun setLanguage(lang: String) { prefs.edit().putString(KEY_LANGUAGE, lang).apply() }
 
     // --- INFORMACIÓN DE CONTACTO ---
     fun getUserName(): String = prefs.getString(KEY_USER_NAME, "") ?: ""
