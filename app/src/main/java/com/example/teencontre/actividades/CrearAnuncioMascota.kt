@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
 import coil.compose.AsyncImage
 import com.example.teencontre.sharedprefs.PreferenceManager
 import com.example.teencontre.ui.theme.BorderGray
@@ -390,7 +391,7 @@ fun NavigationButtons(step: Int, accepted: Boolean, onNext: () -> Unit, onBack: 
             Text(if (step < 5) "Siguiente" else "Publicar anuncio", fontWeight = FontWeight.Bold)
         }
         TextButton(onClick = onBack) { Text("Atrás", color = Color.Gray) }
-        if (step == 2 || step == 4) {
+        if (step == 4) {
             TextButton(onClick = onOmit) { Text("Omitir", color = Color(0xFF7C4DFF), fontWeight = FontWeight.Bold) }
         }
     }
@@ -902,26 +903,93 @@ fun PasoFotoYDesc(
     onPhotos: (List<Uri>) -> Unit,
     onDesc: (String) -> Unit
 ) {
-    Column {
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia()
+    ) { uris -> onPhotos(uris) }
+
+    val stroke = Stroke(
+        width = 2f,
+        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+    )
+
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Adjunta fotos de tu mascota",
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp
         )
-        Button(
-            onClick = { /* Lógica de galería */ },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Añadir una foto")
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (photos.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 12.dp)
+            ) {
+                items(photos) { uri ->
+                    AsyncImage(
+                        model = uri,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(90.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp)
+                .drawBehind {
+                    drawRoundRect(
+                        color = Color.LightGray,
+                        style = stroke,
+                        cornerRadius = CornerRadius(8.dp.toPx())
+                    )
+                }
+                .clickable {
+                    launcher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Añadir una foto",
+                color = Color.Gray,
+                fontSize = 16.sp
+            )
+        }
 
-        // Eliminamos singleLine para evitar el error de compilación
-        LoginInput(
-            label = "Descripción",
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Text(
+            text = "Descripción",
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
             value = desc,
             onValueChange = onDesc,
-            placeholder = "Describe a la mascota..."
+            placeholder = { Text("Describe a la mascota...", color = Color.Gray) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = false,
+            maxLines = 5,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF7C4DFF),
+                unfocusedBorderColor = Color.LightGray
+            )
         )
     }
 }
