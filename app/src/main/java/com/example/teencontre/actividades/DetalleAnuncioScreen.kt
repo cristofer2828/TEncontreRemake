@@ -39,8 +39,6 @@ fun DetalleAnuncioScreen(
     onNavigate: (String) -> Unit
 ) {
 
-    var visible by remember { mutableStateOf(false) }
-
     var nuevoComentario by remember { mutableStateOf("") }
     var comentarios by remember {
         mutableStateOf(
@@ -52,7 +50,7 @@ fun DetalleAnuncioScreen(
         )
     }
 
-    //Estado cambiaria y se veria el modal de dueño y cel
+    // Estado cambiaria y se veria el modal de dueño y cel
     var mostrarModal by remember { mutableStateOf(false) }
 
 
@@ -207,11 +205,6 @@ fun DetalleAnuncioScreen(
 
             comentarios.forEachIndexed { index, comentario ->
 
-                var visible by remember { mutableStateOf(false) }
-
-                LaunchedEffect(Unit) {
-                    visible = true
-                }
 
                 AnimatedVisibility(
                     visible = true,

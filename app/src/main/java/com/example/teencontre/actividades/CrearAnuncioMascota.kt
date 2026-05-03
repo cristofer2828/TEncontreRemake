@@ -31,13 +31,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.scale
 import coil.compose.AsyncImage
 import com.example.teencontre.sharedprefs.PreferenceManager
+import com.example.teencontre.ui.theme.BorderGray
+import com.example.teencontre.ui.theme.FigmaBlue
+import com.example.teencontre.ui.theme.TextGray
 import java.text.SimpleDateFormat
 import java.util.*
 
-// --- CONFIGURACIÓN DE COLORES ---
-val FigmaBlue = Color(0xFF5A57FF)
-val BorderGray = Color(0xFFE0E0E0)
-val TextGray = Color(0xFF757575)
 
 // --- WIZARD 1: PERDÍ A MI MASCOTA ---
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,7 +46,7 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
     val prefs = remember { PreferenceManager(context) }
     var step by remember { mutableIntStateOf(1) }
 
-    // --- ESTADOS DE CONTROL DE INTERFAZ (Corrección de image_052f7a.png) ---
+    // --- ESTADOS DE CONTROL DE INTERFAZ ---
     var showPhotoSheet by remember { mutableStateOf(false) }
     var showDescSheet by remember { mutableStateOf(false) }
 
@@ -69,7 +68,7 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
-                onProfileClick = { /* Navegar al perfil si es necesario */ },
+                onProfileClick = {  },
                 onPublishClick = onBackToSelector,
                 onEncuentranosClick = { },
                 onMapaClick = { }
@@ -124,7 +123,6 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
                         if (step < 5) {
                             step++
                         } else {
-                            // Guardado definitivo en SharedPreferences con etiqueta PERDIDA
                             prefs.saveAd(
                                 contactName ?: "",
                                 contactPhone ?: "",
@@ -138,7 +136,6 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
                         if (step > 1) step-- else onBackToSelector()
                     },
                     onOmit = {
-                        // Lógica para mostrar advertencias al omitir pasos opcionales
                         if (step == 2) showPhotoSheet = true
                         if (step == 4) showDescSheet = true
                     }
@@ -533,12 +530,12 @@ fun CustomInput(label: String, value: String, onValueChange: (String) -> Unit, p
 // --- PASOS ESPECÍFICOS ---
 @Composable
 fun PasoMascota(
-    nombre: String,          // Nuevo
-    raza: String,            // Nuevo
+    nombre: String,
+    raza: String,
     type: String,
     gen: String,
-    onNombre: (String) -> Unit, // Nuevo
-    onRaza: (String) -> Unit,   // Nuevo
+    onNombre: (String) -> Unit,
+    onRaza: (String) -> Unit,
     onType: (String) -> Unit,
     onGen: (String) -> Unit
 ) {
@@ -738,7 +735,7 @@ fun CustomBottomSheet(title: String, desc: String, confirm: String, dismiss: Str
         }
     }
 }
-// --- adopciones ---
+// --- Adopciones ---
 @Composable
 fun PasoMascotaAdopcion(
     name: String,

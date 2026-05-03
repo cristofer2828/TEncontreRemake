@@ -16,11 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,7 +38,6 @@ import com.example.teencontre.ui.theme.TeEncontreTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.teencontre.sharedprefs.PreferenceManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -195,8 +191,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .size(250.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             Image(
                 painter = painterResource(id = R.drawable.logo_perros),
@@ -218,7 +212,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Campo de Correo conectado al estado
         LoginInput(
             label = "Correo",
             value = correo,
@@ -228,13 +221,12 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Campo de Contraseña con icono de ojo dinámico
         LoginInput(
             label = "Contraseña",
             value = password,
             onValueChange = { password = it },
             placeholder = "Contraseña",
-            isPassword = !passwordVisible, // Si visible es true, isPassword es false
+            isPassword = !passwordVisible,
             trailingIcon = {
                 val icon = if (passwordVisible) android.R.drawable.ic_menu_view else android.R.drawable.ic_menu_close_clear_cancel
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -255,7 +247,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
         ) {
-            Text("INGRESAR ACCESO")
+            Text("Ingresar")
         }
 
         TextButton(onClick = onRegisterClick) {
@@ -443,13 +435,14 @@ val textoTerminosONS = """
     
     4. PRIVACIDAD: Tu dirección y RUC serán almacenados de forma segura y usados solo para fines de transparencia institucional.
 """.trimIndent()
-// --- PANTALLA 2: SELECTOR ---
 
+
+// --- PANTALLA 2: SELECTOR ---
 @Composable
 fun CreateAnnouncementScreen(
     onEncontreClick: () -> Unit,
     onPerdiClick: () -> Unit,
-    onAdopcionClick: () -> Unit, // Nueva acción para adopción
+    onAdopcionClick: () -> Unit,
     onProfileClick: () -> Unit,
     onPublishClick: () -> Unit,
     onNavigate: (String) -> Unit
@@ -489,7 +482,6 @@ fun CreateAnnouncementScreen(
 
                 Spacer(modifier = Modifier.height(30.dp))
 
-                // SWITCH DE SIMULACIÓN (image_13b3f7.png)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(bottom = 20.dp)
@@ -564,7 +556,7 @@ fun CreateAnnouncementScreen(
             }
         }
 
-        // --- BURBUJA FLOTANTE (ADAPTA AL MODO OSCURO) ---
+        // --- BURBUJA FLOTANTE ---
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -584,7 +576,7 @@ fun CreateAnnouncementScreen(
         }
     }
 
-    // DIÁLOGO (CON COLORES DEL TEMA)
+    // DIÁLOGO
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -613,7 +605,6 @@ fun CreateAnnouncementScreen(
 
 @Composable
 fun BottomNavigationBar(onProfileClick: () -> Unit, onPublishClick: () -> Unit, onEncuentranosClick: () -> Unit, onMapaClick: () -> Unit) {
-    // Definimos los colores basados en el tema actual
     val backgroundColor = MaterialTheme.colorScheme.surface
     val selectedColor = Color(0xFF7C4DFF)
     val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -621,7 +612,7 @@ fun BottomNavigationBar(onProfileClick: () -> Unit, onPublishClick: () -> Unit, 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(backgroundColor) // <--- Aquí ya no es fijo
+            .background(backgroundColor)
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically
@@ -642,7 +633,6 @@ fun BottomNavigationBar(onProfileClick: () -> Unit, onPublishClick: () -> Unit, 
             icon = android.R.drawable.ic_dialog_map,
             label = "Mapa",
             color = unselectedColor,
-            // CAMBIO AQUÍ: Ahora sí ejecutamos la función que pasamos por parámetro
             onClick = onMapaClick
         )
         NavigationItem(
@@ -683,7 +673,6 @@ fun LoginInput(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     trailingIcon: @Composable (() -> Unit)? = null
 ) {
-    // Ajustamos el teclado automáticamente si es contraseña
     val customKeyboardOptions = if (isPassword) {
         keyboardOptions.copy(keyboardType = KeyboardType.Password)
     } else {
@@ -697,7 +686,6 @@ fun LoginInput(
         label = { Text(label) },
         placeholder = { Text(placeholder) },
         singleLine = true,
-        // Controla si se ven los puntos o el texto real
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = customKeyboardOptions,
         trailingIcon = trailingIcon,
@@ -725,7 +713,7 @@ fun ProfileScreen(
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
-                onProfileClick = { /* Ya estamos aquí */ },
+                onProfileClick = { },
                 onPublishClick = { onNavigate("selector") },
                 onEncuentranosClick = { onNavigate("encuentranos") },
                 onMapaClick = { onNavigate("mapa") }
@@ -761,7 +749,7 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- LÓGICA DINÁMICA DE ANUNCIOS CORREGIDA ---
+            // --- LÓGICA DINÁMICA DE ANUNCIOS ---
             if (savedAd != null) {
                 val adType = savedAd!!["type"] ?: ""
 
@@ -770,7 +758,6 @@ fun ProfileScreen(
                     status = adType,
                     location = "Registrado recientemente",
                     onEdit = {
-                        // Enviamos la ruta especial que el NavHost ahora sabe interpretar
                         when (adType.uppercase()) {
                             "PERDIDA" -> onNavigate("wizard_perdi")
                             "ENCONTRADA" -> onNavigate("wizard_encontre")
@@ -784,7 +771,6 @@ fun ProfileScreen(
                     }
                 )
             } else {
-                // Estado vacío cuando no hay anuncios
                 NoAdsCard()
             }
 
@@ -830,27 +816,6 @@ fun NoAdsCard() {
     }
 }
 
-// 5. ASEGURA QUE ESTA FUNCIÓN ESTÉ ASÍ PARA LA NAVEGACIÓN
-@Composable
-fun QuickActionsCard(onNavigate: (String) -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        )
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            // "settings" debe coincidir con el string en tu MainActivity
-            QuickActionItem(Icons.Default.Settings, "Ajustes") { onNavigate("settings") }
-            QuickActionItem(Icons.Default.AddCircle, "Crear") { onNavigate("selector") }
-            QuickActionItem(Icons.Default.Favorite, "Seleccionado") { /* Lógica futura */ }
-        }
-    }
-}
 
 @Composable
 fun AdItemCard(
@@ -894,7 +859,7 @@ fun AdItemCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                // --- COLOR DINÁMICO SEGÚN EL TIPO (Corrigiendo image_0361fa.png) ---
+                // --- COLOR DINÁMICO SEGÚN EL TIPO ---
                 Text(
                     text = status.uppercase(),
                     color = when (status.uppercase()) {
@@ -917,7 +882,7 @@ fun AdItemCard(
             // Columna de acciones
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 IconButton(
-                    onClick = { onEdit() }, // Se invoca la función de navegación
+                    onClick = { onEdit() },
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
@@ -943,34 +908,6 @@ fun AdItemCard(
 }
 
 @Composable
-fun QuickActionItem(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .clickable { onClick() }
-            .padding(8.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            modifier = Modifier.size(32.dp),
-            tint = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-@Composable
 fun ProfileOptionItem(icon: Int, label: String, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -983,7 +920,6 @@ fun ProfileOptionItem(icon: Int, label: String, onClick: () -> Unit) {
             painter = painterResource(id = icon),
             contentDescription = label,
             modifier = Modifier.size(32.dp),
-            // onSurfaceVariant es oscuro en modo claro y claro en modo oscuro
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
@@ -1005,18 +941,18 @@ fun SettingsScreen(
     val context = LocalContext.current
     val prefs = remember { PreferenceManager(context) }
 
-    // 🔹 DATOS DE CONTACTO
+    // DATOS DE CONTACTO
     var nombre by remember { mutableStateOf(prefs.getUserName()) }
     var telefono by remember { mutableStateOf(prefs.getPhone()) }
     var correo by remember { mutableStateOf(prefs.getEmail()) }
     var emailNotifications by remember { mutableStateOf(prefs.getNotifications()) }
 
-    // 🔹 DATOS DE SEGURIDAD (Estado de los campos)
+    // DATOS DE SEGURIDAD
     var passwordActual by remember { mutableStateOf("") }
     var passwordNueva by remember { mutableStateOf("") }
     var passwordRepetir by remember { mutableStateOf("") }
 
-    // 🔹 ESTADOS DE VISIBILIDAD (Estado de los ojos)
+    // ESTADOS DE VISIBILIDAD DE CONTRASEÑA
     var showPasswordActual by remember { mutableStateOf(false) }
     var showPasswordNueva by remember { mutableStateOf(false) }
     var showPasswordRepetir by remember { mutableStateOf(false) }
@@ -1091,7 +1027,7 @@ fun SettingsScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp)
 
-            // SECCIÓN: SEGURIDAD (CON LÓGICA DE ICONOS CORREGIDA)
+            // SECCIÓN: SEGURIDAD
             Text("Seguridad", color = Color.Gray, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -1165,7 +1101,6 @@ fun ProfileOptionsCard(onNavigate: (String) -> Unit) {
             .fillMaxWidth()
             .padding(vertical = 16.dp),
         shape = RoundedCornerShape(16.dp),
-        // containerColor ahora cambia según el tema (Oscuro o Claro)
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),

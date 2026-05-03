@@ -49,7 +49,6 @@ fun EncuentranosScreen(
     onNavigate: (String) -> Unit
 ) {
 
-    // 🔹 Estados de filtros
     var mostrarFiltros by remember { mutableStateOf(false) }
 
     var desaparecido by remember { mutableStateOf(false) }
@@ -65,8 +64,8 @@ fun EncuentranosScreen(
             BottomNavigationBar(
                 onProfileClick = onProfileClick,
                 onPublishClick = onPublishClick,
-                onEncuentranosClick = { /* Ya estamos aquí */ },
-                onMapaClick = { onNavigate("mapa") } // <-- Cambia el { } vacío por esto
+                onEncuentranosClick = { },
+                onMapaClick = { onNavigate("mapa") }
             )
         }
     ) { paddingValues ->
@@ -77,8 +76,6 @@ fun EncuentranosScreen(
                 .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-
-            // 🔹 HEADER
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -98,7 +95,7 @@ fun EncuentranosScreen(
                 )
             }
 
-            // 🔹 FILTROS (HEADER CLICKEABLE)
+            // FILTROS
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -125,7 +122,7 @@ fun EncuentranosScreen(
                 }
             }
 
-            // 🔹 CONTENIDO DESPLEGABLE
+            // CONTENIDO DESPLEGABLE
             if (mostrarFiltros) {
 
                 Card(
@@ -168,7 +165,7 @@ fun EncuentranosScreen(
                 }
             }
 
-            // 🔹 LISTA
+            // LISTA DE ANUNCIOS
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {

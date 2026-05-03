@@ -76,7 +76,7 @@ fun MyMap(ubicacion: Ubicacion, onReady: (GoogleMap) -> Unit) {
     val mapView = remember { MapView(context) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    // Usamos el observador de ciclo de vida que definiste[cite: 1]
+    // Usamos el observador de ciclo de vida
     lifecycle.addObserver(rememberMapLifeCycle(map = mapView))
 
     AndroidView(

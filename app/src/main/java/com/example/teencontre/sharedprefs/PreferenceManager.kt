@@ -11,7 +11,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_PHONE = "phone"
         private const val KEY_EMAIL = "email"
         private const val KEY_NOTIFICATIONS = "notifications"
-        private const val KEY_AD_TYPE = "ad_type" // Nueva llave para identificar el tipo de anuncio
+        private const val KEY_AD_TYPE = "ad_type"
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -40,7 +40,7 @@ class PreferenceManager(context: Context) {
             putString(KEY_USER_NAME, name)
             putString(KEY_PHONE, phone)
             putString(KEY_EMAIL, email)
-            putString(KEY_AD_TYPE, type) // Guarda el tipo para mostrarlo en el perfil
+            putString(KEY_AD_TYPE, type)
             apply()
         }
     }

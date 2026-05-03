@@ -16,7 +16,7 @@ private val DarkColorScheme = darkColorScheme(
     tertiary = Pink80,
     background = Color(0xFF1C1B1F),
     surface = Color(0xFF1C1B1F),
-    surfaceVariant = Color(0xFF333333), // <-- ESTE ES EL COLOR DEL CUADRO EN MODO OSCURO (GRIS OSCURO)
+    surfaceVariant = Color(0xFF333333),
     onSurfaceVariant = Color.White
 )
 
@@ -26,14 +26,13 @@ private val LightColorScheme = lightColorScheme(
     tertiary = Pink40,
     background = Color(0xFFF9F9F9),
     surface = Color.White,
-    surfaceVariant = Color(0xFFEEEEEE), // <-- ESTE ES EL COLOR DEL CUADRO EN MODO CLARO (GRIS CLARO)
+    surfaceVariant = Color(0xFFEEEEEE),
     onSurfaceVariant = Color.Black
 )
 
 @Composable
 fun TeEncontreTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
