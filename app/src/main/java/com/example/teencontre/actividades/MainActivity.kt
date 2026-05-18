@@ -10,6 +10,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,17 +43,33 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import com.example.teencontre.sharedprefs.PreferenceManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
-
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.asImageBitmap
+import com.example.teencontre.data.DatabaseHelper
+import com.example.teencontre.data.MascotasAdopcionModel
+import com.example.teencontre.data.MascotasEncontradasModel
+import com.example.teencontre.data.MascotasPerdidasModel
+import com.example.teencontre.screens.EditPerdidoScreen
+import com.example.teencontre.screens.EditEncontradaScreen
+import com.example.teencontre.screens.EditAdopcionScreen
+import com.example.teencontre.screens.WizardCrearAnuncio
+import com.example.teencontre.screens.WizardEncontreAnuncio
+import com.example.teencontre.screens.WizardCrearAdopcion
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
+
             // Inicializamos PreferenceManager una sola vez para toda la App
             val prefs = remember { PreferenceManager(context) }
-
+            // Estados globales de navegación y configuración
             var currentScreen by remember { mutableStateOf("login") }
+            var selectedMascotaId by remember { mutableStateOf(0) }
             var wizardMode by remember { mutableStateOf("perdi") }
             var isDarkMode by remember { mutableStateOf(false) }
 
@@ -97,7 +115,7 @@ class MainActivity : ComponentActivity() {
                                     "perdi" -> WizardCrearAnuncio(
                                         onBackToSelector = { currentScreen = "selector" }
                                     )
-                                    "encontre" -> WizardEncontreMascota(
+                                    "encontre" -> WizardEncontreAnuncio(
                                         onBackToSelector = { currentScreen = "selector" }
                                     )
                                     "adopcion" -> WizardCrearAdopcion(
@@ -109,24 +127,42 @@ class MainActivity : ComponentActivity() {
                                 prefs = prefs,
                                 onLogout = { currentScreen = "login" },
                                 onNavigate = { route ->
-                                    // Lógica para interceptar la edición desde el perfil
-                                    when(route) {
-                                        "wizard_perdi" -> {
-                                            wizardMode = "perdi"
-                                            currentScreen = "wizard"
+                                    // CORRECCIÓN: Lógica inteligente para interceptar rutas dinámicas con ids
+                                    when {
+                                        route.startsWith("editar_perdido/") -> {
+                                            val idStr = route.substringAfter("editar_perdido/")
+                                            selectedMascotaId = idStr.toIntOrNull() ?: 0
+                                            currentScreen = "editar_perdido"
                                         }
-                                        "wizard_encontre" -> {
-                                            wizardMode = "encontre"
-                                            currentScreen = "wizard"
+                                        route.startsWith("editar_encontrada/") -> {
+                                            val idStr = route.substringAfter("editar_encontrada/")
+                                            selectedMascotaId = idStr.toIntOrNull() ?: 0
+                                            currentScreen = "editar_encontrada"
                                         }
-                                        "wizard_adopcion" -> {
-                                            wizardMode = "adopcion"
-                                            currentScreen = "wizard"
+                                        route.startsWith("editar_adopcion/") -> {
+                                            val idStr = route.substringAfter("editar_adopcion/")
+                                            selectedMascotaId = idStr.toIntOrNull() ?: 0
+                                            currentScreen = "editar_adopcion"
                                         }
                                         else -> currentScreen = route
                                     }
                                 }
                             )
+
+                            // CORRECCIÓN: Inyección obligatoria de idMascota a las pantallas de edición
+                            "editar_perdido" -> EditPerdidoScreen(
+                                idMascota = selectedMascotaId,
+                                onBack = { currentScreen = "profile" }
+                            )
+                            "editar_encontrada" -> EditEncontradaScreen(
+                                idMascota = selectedMascotaId,
+                                onBack = { currentScreen = "profile" }
+                            )
+                            "editar_adopcion" -> EditAdopcionScreen(
+                                idMascota = selectedMascotaId,
+                                onBack = { currentScreen = "profile" }
+                            )
+
                             "settings" -> SettingsScreen(
                                 isDarkMode = isDarkMode,
                                 onDarkModeChange = { isDarkMode = it },
@@ -163,7 +199,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
 }
 
 
@@ -704,16 +739,104 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     onNavigate: (String) -> Unit
 ) {
-    var savedAd by remember { mutableStateOf<Map<String, String>?>(null) }
+    val context = LocalContext.current
+    val dbHelper = remember { DatabaseHelper(context) }
 
-    LaunchedEffect(key1 = Unit) {
-        savedAd = prefs.getSavedAd()
+    // Listas de estados para almacenar las publicaciones leídas desde SQLite
+    var listaPerdidos by remember { mutableStateOf<List<MascotasPerdidasModel>>(emptyList()) }
+    var listaEncontrados by remember { mutableStateOf<List<MascotasEncontradasModel>>(emptyList()) }
+    var listaAdopciones by remember { mutableStateOf<List<MascotasAdopcionModel>>(emptyList()) }
+
+    // Estado clave de control para forzar la recarga cuando eliminamos o entramos a la pantalla
+    var refreshTrigger by remember { mutableIntStateOf(0) }
+
+    // CORRECCIÓN CRÍTICA: Cada vez que 'refreshTrigger' cambie, se volverá a consultar SQLite de inmediato
+    LaunchedEffect(key1 = refreshTrigger) {
+        val db = dbHelper.readableDatabase
+
+        // 1. Leer Perdidos
+        val listaP = mutableListOf<MascotasPerdidasModel>()
+        val cursorP = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_PERDIDOS}", null)
+        if (cursorP.moveToFirst()) {
+            do {
+                listaP.add(
+                    MascotasPerdidasModel(
+                        id = cursorP.getInt(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_ID)),
+                        nombreM = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_NOMBRE)),
+                        especie = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_ESPECIE)),
+                        genero = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_GENERO)),
+                        raza = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_RAZA)),
+                        foto = cursorP.getBlob(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_FOTO)),
+                        fecha = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_FECHA)),
+                        lugar = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_LUGAR)),
+                        descripcion = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_DESCRIPCION)),
+                        contacto = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_CONTACTO)),
+                        telefono = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_TELEFONO)),
+                        correo = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_CORREO))
+                    )
+                )
+            } while (cursorP.moveToNext())
+        }
+        cursorP.close()
+        listaPerdidos = listaP
+
+        // 2. Leer Encontrados
+        val listaE = mutableListOf<MascotasEncontradasModel>()
+        val cursorE = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_ENCONTRADOS}", null)
+        if (cursorE.moveToFirst()) {
+            do {
+                listaE.add(
+                    MascotasEncontradasModel(
+                        id = cursorE.getInt(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_ID)),
+                        especie = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_ESPECIE)),
+                        genero = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_GENERO)),
+                        foto = cursorE.getBlob(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_FOTO)),
+                        fecha = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_FECHA)),
+                        lugar = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_LUGAR)),
+                        descripcion = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_DESCRIPCION)),
+                        contacto = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_CONTACTO)),
+                        telefono = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_TELEFONO)),
+                        correo = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_CORREO))
+                    )
+                )
+            } while (cursorE.moveToNext())
+        }
+        cursorE.close()
+        listaEncontrados = listaE
+
+        // 3. Leer Adopciones
+        val listaA = mutableListOf<MascotasAdopcionModel>()
+        val cursorA = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_ADOPCION}", null)
+        if (cursorA.moveToFirst()) {
+            do {
+                listaA.add(
+                    MascotasAdopcionModel(
+                        id = cursorA.getInt(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ID)),
+                        especie = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ESPECIE)),
+                        genero = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_GENERO)),
+                        raza = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_RAZA)),
+                        vacunado = cursorA.getInt(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_VACUNADO)) == 1,
+                        esterilizado = cursorA.getInt(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ESTERILIZADO)) == 1,
+                        desparasitado = cursorA.getInt(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_DESPARASITADO)) == 1,
+                        tamano = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TAMANO)),
+                        temperamento = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TEMPERAMENTO)),
+                        foto = cursorA.getBlob(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_FOTO)),
+                        descripcion = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_DESCRIPCION)),
+                        nombreOrganizacion = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ORGANIZACION)),
+                        telefono = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TELEFONO)),
+                        correo = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_CORREO))
+                    )
+                )
+            } while (cursorA.moveToNext())
+        }
+        cursorA.close()
+        listaAdopciones = listaA
     }
 
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
-                onProfileClick = { },
+                onProfileClick = { refreshTrigger++ }, // Forzar actualización manual si presionan de nuevo su propio botón
                 onPublishClick = { onNavigate("selector") },
                 onEncuentranosClick = { onNavigate("encuentranos") },
                 onMapaClick = { onNavigate("mapa") }
@@ -749,27 +872,56 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- LÓGICA DINÁMICA DE ANUNCIOS ---
-            if (savedAd != null) {
-                val adType = savedAd!!["type"] ?: ""
+            val totalAnuncios = listaPerdidos.size + listaEncontrados.size + listaAdopciones.size
 
-                AdItemCard(
-                    description = savedAd!!["name"] ?: "Sin nombre",
-                    status = adType,
-                    location = "Registrado recientemente",
-                    onEdit = {
-                        when (adType.uppercase()) {
-                            "PERDIDA" -> onNavigate("wizard_perdi")
-                            "ENCONTRADA" -> onNavigate("wizard_encontre")
-                            "ADOPCIÓN" -> onNavigate("wizard_adopcion")
-                            else -> onNavigate("selector")
+            if (totalAnuncios > 0) {
+                // ---- Renderizar Mascotas Perdidas ----
+                listaPerdidos.forEach { mascota ->
+                    AdItemCard(
+                        description = mascota.nombreM,
+                        status = "PERDIDA",
+                        location = mascota.lugar,
+                        fotoBytes = mascota.foto,
+                        onEdit = { onNavigate("editar_perdido/${mascota.id}") },
+                        onDelete = {
+                            val db = dbHelper.writableDatabase
+                            db.delete(DatabaseHelper.TABLE_PERDIDOS, "${DatabaseHelper.PERDIDO_ID} = ?", arrayOf(mascota.id.toString()))
+                            refreshTrigger++ // Lanza la actualización reactiva
                         }
-                    },
-                    onDelete = {
-                        prefs.clearAll()
-                        savedAd = null
-                    }
-                )
+                    )
+                }
+
+                // ---- Renderizar Mascotas Encontradas ----
+                listaEncontrados.forEach { mascota ->
+                    AdItemCard(
+                        description = "Especie: ${mascota.especie}",
+                        status = "ENCONTRADA",
+                        location = mascota.lugar,
+                        fotoBytes = mascota.foto,
+                        onEdit = { onNavigate("editar_encontrada/${mascota.id}") },
+                        onDelete = {
+                            val db = dbHelper.writableDatabase
+                            db.delete(DatabaseHelper.TABLE_ENCONTRADOS, "${DatabaseHelper.ENCONTRADO_ID} = ?", arrayOf(mascota.id.toString()))
+                            refreshTrigger++ // Lanza la actualización reactiva
+                        }
+                    )
+                }
+
+                // ---- Renderizar Casos de Adopción ----
+                listaAdopciones.forEach { mascota ->
+                    AdItemCard(
+                        description = "${mascota.especie} (${mascota.raza})",
+                        status = "ADOPCION",
+                        location = mascota.nombreOrganizacion,
+                        fotoBytes = mascota.foto,
+                        onEdit = { onNavigate("editar_adopcion/${mascota.id}") },
+                        onDelete = {
+                            val db = dbHelper.writableDatabase
+                            db.delete(DatabaseHelper.TABLE_ADOPCION, "${DatabaseHelper.ADOPCION_ID} = ?", arrayOf(mascota.id.toString()))
+                            refreshTrigger++ // Lanza la actualización reactiva
+                        }
+                    )
+                }
             } else {
                 NoAdsCard()
             }
@@ -816,12 +968,12 @@ fun NoAdsCard() {
     }
 }
 
-
 @Composable
 fun AdItemCard(
     description: String,
     status: String,
     location: String,
+    fotoBytes: ByteArray?,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -840,18 +992,33 @@ fun AdItemCard(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Miniatura de imagen
             Box(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Gray)
-            )
+                    .background(Color.LightGray),
+                contentAlignment = Alignment.Center
+            ) {
+                if (fotoBytes != null && fotoBytes.isNotEmpty()) {
+                    val bitmap = remember(fotoBytes) {
+                        android.graphics.BitmapFactory.decodeByteArray(fotoBytes, 0, fotoBytes.size)
+                    }
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Foto mascota",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                } else {
+                    Text("🐾", fontSize = 24.sp)
+                }
+            }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                // Título/Nombre de la mascota
                 Text(
                     text = description,
                     fontWeight = FontWeight.Bold,
@@ -859,13 +1026,12 @@ fun AdItemCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                // --- COLOR DINÁMICO SEGÚN EL TIPO ---
                 Text(
                     text = status.uppercase(),
                     color = when (status.uppercase()) {
-                        "PERDIDA" -> Color(0xFF7C4DFF) // Púrpura como en tu imagen
-                        "ENCONTRADA" -> Color(0xFF4CAF50) // Verde
-                        "ADOPCIÓN" -> Color(0xFF2196F3) // Azul
+                        "PERDIDA" -> Color(0xFF7C4DFF)
+                        "ENCONTRADA" -> Color(0xFF4CAF50)
+                        "ADOPCION", "ADOPCION" -> Color(0xFF2196F3)
                         else -> Color(0xFF7C4DFF)
                     },
                     fontSize = 12.sp,
@@ -879,14 +1045,13 @@ fun AdItemCard(
                 )
             }
 
-            // Columna de acciones
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 IconButton(
                     onClick = { onEdit() },
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Edit,
+                        imageVector = Icons.Filled.Edit,
                         contentDescription = "Editar anuncio",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -897,7 +1062,7 @@ fun AdItemCard(
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Close,
+                        imageVector = Icons.Filled.Delete,
                         contentDescription = "Eliminar anuncio",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1127,3 +1292,4 @@ fun ProfileOptionsCard(onNavigate: (String) -> Unit) {
         }
     }
 }
+
