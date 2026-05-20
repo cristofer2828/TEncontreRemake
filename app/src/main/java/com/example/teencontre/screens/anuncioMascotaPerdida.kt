@@ -2,7 +2,6 @@ package com.example.teencontre.screens
 
 import android.content.Context
 import android.net.Uri
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,6 +26,17 @@ import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Date
 import androidx.compose.ui.platform.LocalLocale
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import coil.compose.rememberAsyncImagePainter
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
+
 
 // IMPORTACIONES DE TU CONFIGURACIÓN DE BASE DE DATOS
 import com.example.teencontre.data.DatabaseHelper
@@ -60,6 +70,7 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
     // Estados para controlar los Bottom Sheets de omisión
     var showOmitirFotoSheet by remember { mutableStateOf(false) }
     var showOmitirDescSheet by remember { mutableStateOf(false) }
+    var showConfirmarDireccionSheet by remember { mutableStateOf(false) }
 
     val sdf = SimpleDateFormat("dd/MM/yyyy", LocalLocale.current.platformLocale)
 
@@ -94,37 +105,59 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
                     )
                 }
 
-                // Indicador circular de progreso aumentado a 80.dp según el diseño Figma
+                // Indicador circular de progreso
                 if (step <= totalSteps) {
                     Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(80.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            progress = { 1f },
-                            modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            strokeWidth = 4.dp
-                        )
-                        CircularProgressIndicator(
-                            progress = { step.toFloat() / totalSteps.toFloat() },
-                            modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 4.dp
-                        )
-                        Text(
-                            text = "$step/$totalSteps",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                        IconButton(
+                            onClick = { if (step > 1 && step <= totalSteps) step-- else onBackToSelector() },
+                            modifier = Modifier.align(Alignment.CenterStart)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Atrás",
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                        if (step <= totalSteps) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.size(130.dp) // Tamaño exacto del circulo progresivo
+                            ) {
+                                CircularProgressIndicator(
+                                    progress = 1f,
+                                    modifier = Modifier.fillMaxSize(),
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                    strokeWidth = 6.dp
+                                )
+                                val colorPrimario = MaterialTheme.colorScheme.primary
+                                val unCuartoDeVuelta = -90f
+                                val proporcionProgreso = step.toFloat() / totalSteps.toFloat()
+                                androidx.compose.foundation.Canvas(
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    drawArc(
+                                        color = colorPrimario,
+                                        startAngle = unCuartoDeVuelta,
+                                        sweepAngle = 360f * proporcionProgreso,
+                                        useCenter = false,
+                                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                            width = 6.dp.toPx(),
+                                            cap = androidx.compose.ui.graphics.StrokeCap.Round
+                                        )
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(30.dp))
 
-            // Título de la sección
             Text(
                 text = if (step <= totalSteps) "Mascota perdida" else "Hecho",
                 fontSize = 28.sp,
@@ -145,11 +178,23 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
                         onType = { petType = it }, onGen = { gender = it }
                     )
                     2 -> PasoFoto(selectedPhotos) { selectedPhotos = it }
-                    3 -> PasoUbicacion(location, selectedDate, { location = it }, { selectedDate = it })
+                    3 -> PasoUbicacion(
+                        lugar = location,
+                        fecha = selectedDate,
+                        mostrarModal = showConfirmarDireccionSheet,
+                        onLugar = { location = it },
+                        onFecha = { selectedDate = it },
+                        onDireccionConfirmada = {
+                            showConfirmarDireccionSheet = false
+                            step++
+                        },
+                        onDismissModal = { showConfirmarDireccionSheet = false }
+                    )
+
                     4 -> PasoDescripcion(description) { description = it }
                     5 -> PasoContacto(
-                        contactName, contactPhone, contactEmail, acceptedTerms,
-                        { contactName = it }, { contactPhone = it }, { contactEmail = it }, { acceptedTerms = it }
+                        nombre = contactName, telefono = contactPhone, correo = contactEmail, aceptado = acceptedTerms,
+                        onNombre = { contactName = it }, onTelefono = { contactPhone = it }, onCorreo = { contactEmail = it }, onAceptado = { acceptedTerms = it }
                     )
                     6 -> PantallaHecho(onBackToSelector)
                 }
@@ -162,10 +207,11 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
                     step = step,
                     accepted = acceptedTerms,
                     onNext = {
-                        if (step < totalSteps) {
+                        if (step == 3) {
+                            showConfirmarDireccionSheet = true
+                        } else if (step < totalSteps) {
                             step++
                         } else {
-                            // Proceso de guardado en SQLite al presionar Publicar
                             var fotoBytes: ByteArray? = null
                             if (selectedPhotos.isNotEmpty()) {
                                 try {
@@ -206,7 +252,6 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
             }
         }
     }
-
     // --- DESPLIEGUE DE HOJAS EMERGENTES DE OMISIÓN ---
     if (showOmitirFotoSheet) {
         OmitirFotoSheet(
@@ -217,7 +262,6 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
             }
         )
     }
-
     if (showOmitirDescSheet) {
         OmitirDescripcionSheet(
             onDismiss = { showOmitirDescSheet = false },
@@ -234,31 +278,41 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
 // =================================================================
 @Composable
 fun NavigationButtons(step: Int, accepted: Boolean, onNext: () -> Unit, onBack: () -> Unit, onOmit: () -> Unit) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (step == 2 || step == 4) {
-            TextButton(onClick = onOmit, modifier = Modifier.height(48.dp)) {
-                Text("Omitir", color = MaterialTheme.colorScheme.outline, fontWeight = FontWeight.Medium)
-            }
-        } else {
-            Spacer(modifier = Modifier.width(4.dp))
-        }
-
         val botonHabilitado = step != 5 || accepted
         Button(
             onClick = onNext,
             enabled = botonHabilitado,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (botonHabilitado) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = if (botonHabilitado) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                containerColor = Color(0xFF5E4BCE),
+                contentColor = Color.White
             ),
-            modifier = Modifier.weight(1f).height(50.dp),
+            modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text(if (step == 5) "Publicar" else "Siguiente", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(if (step == 5) "Publicar un anuncio" else "Siguiente", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        }
+
+        if (step == 2 || step == 4) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onOmit,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF5E4BCE)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(12.dp)),
+                elevation = ButtonDefaults.buttonElevation(0.dp)
+            ) {
+                Text("Omitir", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            }
         }
     }
 }
@@ -335,63 +389,284 @@ fun SelectorDoble(label: String, opciones: Pair<String, String>, seleccionado: S
 
 @Composable
 fun PasoFoto(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) {
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            onPhotosChanged(photos + uris)
+        }
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Fotos de la mascota", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onBackground)
-        Text("Añada imágenes claras para facilitar la identificación.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-        Spacer(Modifier.height(24.dp))
-
+        Text(
+            text = "¿Como se ve?",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Adjunta fotos de su mascota. Esto aumentará la posibilidad de encontrarla.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 14.sp,
+            lineHeight = 18.sp
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = "Foto",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(6.dp))
         Box(
             modifier = Modifier
-                .fillMaxWidth().height(160.dp)
-                .border(2.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                .clickable { /* Aquí integras tu FilePicker o selector de fotos habitual */ },
+                .fillMaxWidth()
+                .height(48.dp)
+                .background(Color.White, RoundedCornerShape(8.dp))
+                .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
+                .clickable { galleryLauncher.launch("image/*") },
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = if (photos.isEmpty()) "Presiona para añadir fotos" else "¡${photos.size} Foto(s) Seleccionada(s)!",
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Medium
+                text = "Añadir una foto",
+                color = Color(0xFFBDBDBD),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Normal
             )
+        }
+        if (photos.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(photos) { uri ->
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
+                            .background(Color.White, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = rememberAsyncImagePainter(uri),
+                            contentDescription = "Preview Mascota",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(4.dp)
+                                .clip(RoundedCornerShape(6.dp)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                        IconButton(
+                            onClick = { onPhotosChanged(photos.filter { it != uri }) },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(24.dp)
+                                .background(Color(0xCC000000), androidx.compose.foundation.shape.CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Eliminar",
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun PasoUbicacion(lugar: String, fecha: Long, onLugar: (String) -> Unit, onFecha: (Long) -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text("¿Dónde y cuándo se perdió?", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onBackground)
-        Text("Ayuda a delimitar la zona de búsqueda", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-        Spacer(Modifier.height(24.dp))
+fun PasoUbicacion(
+    lugar: String,
+    fecha: Long,
+    mostrarModal: Boolean,
+    onLugar: (String) -> Unit,
+    onFecha: (Long) -> Unit,
+    onDireccionConfirmada: () -> Unit,
+    onDismissModal: () -> Unit
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
 
-        Text("Última ubicación conocida", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground)
+    val dateFormatter = remember {
+        java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "¿Dónde y cuándo se perdió?",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Ayuda a delimitar la zona de búsqueda.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 14.sp,
+            lineHeight = 18.sp
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = "Fecha de extravío",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .background(Color.White, RoundedCornerShape(8.dp))
+                .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
+                .clickable { showDatePicker = true }
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val formattedDate = dateFormatter.format(java.util.Date(fecha))
+                Text(
+                    text = formattedDate,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 15.sp
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Desplegar fecha",
+                    tint = Color(0xFF9E9E9E)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Última ubicación conocida",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+
         OutlinedTextField(
-            value = lugar, onValueChange = onLugar,
-            placeholder = { Text("Ej. Distrito, parque, avenidas de referencia", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            value = lugar,
+            onValueChange = onLugar,
+            placeholder = { Text("Ej. Distrito, parque, avenidas de referencia", color = Color(0xFFBDBDBD), fontSize = 15.sp) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
             shape = RoundedCornerShape(8.dp),
+            singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = Color(0xFFE0E0E0),
                 focusedTextColor = MaterialTheme.colorScheme.onBackground,
                 unfocusedTextColor = MaterialTheme.colorScheme.onBackground
             )
         )
+    }
 
-        Spacer(Modifier.height(16.dp))
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = fecha)
 
-        Text("Fecha de extravío", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth().padding(vertical = 4.dp).height(56.dp)
-                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                .clickable { /* MostrarDatePicker */ }
-                .padding(horizontal = 16.dp),
-            contentAlignment = Alignment.CenterStart
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { onFecha(it) }
+                    showDatePicker = false
+                }) {
+                    Text("Aceptar", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancelar")
+                }
+            }
         ) {
-            val formattedDate = SimpleDateFormat("dd/MM/yyyy", LocalLocale.current.platformLocale).format(Date(fecha))
-            Text(formattedDate, color = MaterialTheme.colorScheme.onBackground)
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (mostrarModal) {
+        ModalBottomSheet(
+            onDismissRequest = onDismissModal,
+            containerColor = Color.White,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "¿Es la dirección correcta?",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Una dirección incorrecta reducirá la efectividad de su solicitud de mascota.",
+                    fontSize = 14.sp,
+                    color = Color(0xFF555555),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = onDireccionConfirmada,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF5E4BCE),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Text("si, cierto", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onDismissModal,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFF1F1F1),
+                        contentColor = Color(0xFF555555)
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Text("No, quiero cambiar", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
     }
 }
-
 @Composable
 fun PasoDescripcion(descripcion: String, onDescripcion: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -418,34 +693,194 @@ fun PasoContacto(
     nombre: String, telefono: String, correo: String, aceptado: Boolean,
     onNombre: (String) -> Unit, onTelefono: (String) -> Unit, onCorreo: (String) -> Unit, onAceptado: (Boolean) -> Unit
 ) {
+    // Estados internos para no alterar los parámetros originales de tu función
+    var terminosAceptados by remember { mutableStateOf(false) }
+    var mostrarModalTerminos by remember { mutableStateOf(false) }
+
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Información de contacto", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onBackground)
-        Text("¿Cómo te contactarán si encuentran a tu mascota?", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        Text(
+            "Información de contacto",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Text(
+            "¿Cómo te contactarán si encuentran a tu mascota?",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp
+        )
         Spacer(Modifier.height(24.dp))
 
-        Text("Nombre de contacto", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground)
-        OutlinedTextField(value = nombre, onValueChange = onNombre, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(8.dp), singleLine = true)
+        Text(
+            "Nombre de contacto",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        OutlinedTextField(
+            value = nombre,
+            onValueChange = onNombre,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            shape = RoundedCornerShape(8.dp),
+            singleLine = true
+        )
 
         Spacer(Modifier.height(12.dp))
 
-        Text("Teléfono / Celular", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground)
-        OutlinedTextField(value = telefono, onValueChange = onTelefono, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(8.dp), singleLine = true)
+        Text(
+            "Teléfono / Celular",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        OutlinedTextField(
+            value = telefono,
+            onValueChange = onTelefono,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            shape = RoundedCornerShape(8.dp),
+            singleLine = true
+        )
 
         Spacer(Modifier.height(12.dp))
 
-        Text("Correo electrónico", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground)
-        OutlinedTextField(value = correo, onValueChange = onCorreo, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(8.dp), singleLine = true)
+        Text(
+            "Correo electrónico",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        OutlinedTextField(
+            value = correo,
+            onValueChange = onCorreo,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            shape = RoundedCornerShape(8.dp),
+            singleLine = true
+        )
 
         Spacer(Modifier.height(20.dp))
 
+        var datosPublicosAceptados by remember { mutableStateOf(aceptado) }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Checkbox(checked = aceptado, onCheckedChange = onAceptado)
+            Checkbox(
+                checked = datosPublicosAceptados,
+                onCheckedChange = { nuevoValor ->
+                    datosPublicosAceptados = nuevoValor
+                    onAceptado(nuevoValor && terminosAceptados)
+                }
+            )
             Text(
                 text = "Acepto que mis datos de contacto sean públicos para la resolución del caso.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 4.dp)
             )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Checkbox(
+                checked = terminosAceptados,
+                onCheckedChange = { nuevoValor ->
+                    terminosAceptados = nuevoValor
+                    onAceptado(datosPublicosAceptados && nuevoValor)
+                }
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 4.dp)
+            ) {
+                Text(
+                    text = "Acepto los ",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Términos de Usuario",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { mostrarModalTerminos = true }
+                )
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "Ver términos",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(start = 4.dp).size(15.dp)
+                        .clickable { mostrarModalTerminos = true }
+                )
+            }
+        }
+    }
+
+    // --- DIÁLOGO DE TÉRMINOS  ---
+    if (mostrarModalTerminos) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { mostrarModalTerminos = false }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Términos de Usuario",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1A1A1A)
+                        )
+                        IconButton(
+                            onClick = { mostrarModalTerminos = false },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cerrar",
+                                tint = Color(0xFF9E9E9E)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "1. USO RESPONSABLE: Esta plataforma es exclusivamente para facilitar la adopción y el reencuentro de mascotas.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF4A4A4A),
+                            lineHeight = 18.sp
+                        )
+                        Text(
+                            "2. DATOS PERSONALES: Al registrarte, aceptas que tus datos de contacto sean visibles para otros usuarios cuando reportes o busques una mascota.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF4A4A4A),
+                            lineHeight = 18.sp
+                        )
+                        Text(
+                            "3. PROHIBICIONES: Está estrictamente prohibido lucrar o vender animales a través de esta aplicación.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF4A4A4A),
+                            lineHeight = 18.sp
+                        )
+                        Text(
+                            "4. COMUNIDAD: Nos reservamos el derecho de eliminar cuentas que realicen reportes falsos.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF4A4A4A),
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -491,25 +926,74 @@ fun PantallaHecho(onFinished: () -> Unit) {
 }
 
 // =================================================================
-// COMPONENTES: HOJAS EMERGENTES (BOTTOM SHEETS)
+// COMPONENTES: HOJAS EMERGENTES (BOTTOM SHEETS) ESTILIZADAS
 // =================================================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OmitirFotoSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("¿Omitir fotos?", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Los anuncios con fotos tienen un 80% más de probabilidad de éxito.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "¿Omitir fotos?",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Los anuncios con fotos tienen un 80% más de probabilidad de éxito.",
+                fontSize = 14.sp,
+                color = Color(0xFF555555),
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                Text("Añadir foto ahora")
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF5E4BCE),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Text("Añadir foto ahora", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             }
+
             Spacer(modifier = Modifier.height(8.dp))
-            TextButton(onClick = onConfirm, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                Text("Omitir de todas formas", color = MaterialTheme.colorScheme.error)
+
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFF1F1F1),
+                    contentColor = Color(0xFF555555)
+                ),
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Text("Omitir de todas formas", fontWeight = FontWeight.Medium, fontSize = 15.sp)
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -517,19 +1001,68 @@ fun OmitirFotoSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OmitirDescripcionSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("¿Omitir descripción?", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Detalles como el color del collar o marcas ayudan a diferenciar a tu mascota.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "¿Omitir descripción?",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Detalles como el color del collar o marcas ayudan a diferenciar a tu mascota.",
+                fontSize = 14.sp,
+                color = Color(0xFF555555),
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                Text("Escribir detalles")
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF5E4BCE),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Text("Escribir detalles", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             }
+
             Spacer(modifier = Modifier.height(8.dp))
-            TextButton(onClick = onConfirm, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                Text("Omitir de todas formas", color = MaterialTheme.colorScheme.error)
+
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFF1F1F1),
+                    contentColor = Color(0xFF555555)
+                ),
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Text("Omitir de todas formas", fontWeight = FontWeight.Medium, fontSize = 15.sp)
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
