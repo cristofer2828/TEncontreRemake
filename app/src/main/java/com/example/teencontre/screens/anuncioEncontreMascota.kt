@@ -304,22 +304,21 @@ fun SelectorDobleEncontrada(label: String, opciones: Pair<String, String>, selec
 fun PasoFotoEncontrada(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) {
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
-    ) { uris: List<Uri> ->
+    ) { uris ->
         if (uris.isNotEmpty()) {
             onPhotosChanged(photos + uris)
         }
     }
-
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "¿Qué aspecto tiene?",
+            text = "Fotografía de la mascota",
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Adjunta fotos de tu mascota. Esto aumentará tus posibilidades de encontrar al dueño.",
+            text = "Sube imágenes claras para que el dueño original pueda reconocerla rápidamente.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             lineHeight = 18.sp
@@ -332,22 +331,25 @@ fun PasoFotoEncontrada(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) 
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(modifier = Modifier.height(6.dp))
+
+        // --- AQUÍ ESTÁ EL CAMBIO PRINCIPAL (Caja de "Añadir una foto") ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .background(Color.White, RoundedCornerShape(8.dp))
-                .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(8.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                 .clickable { galleryLauncher.launch("image/*") },
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "Añadir una foto",
-                color = Color(0xFFBDBDBD),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Normal
             )
         }
+
         if (photos.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             LazyRow(
@@ -355,11 +357,12 @@ fun PasoFotoEncontrada(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) 
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items(photos) { uri ->
+                    // --- AQUÍ ESTÁ EL SEGUNDO CAMBIO (Miniaturas de las fotos cargadas) ---
                     Box(
                         modifier = Modifier
                             .size(80.dp)
-                            .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
-                            .background(Color.White, RoundedCornerShape(8.dp)),
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(8.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
@@ -379,7 +382,7 @@ fun PasoFotoEncontrada(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) 
                                 .background(Color(0xCC000000), androidx.compose.foundation.shape.CircleShape)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Close, // Cambiado para evitar conflictos, asegúrate de importar Icons.Default.Close
+                                imageVector = Icons.Default.Close,
                                 contentDescription = "Eliminar",
                                 tint = Color.White,
                                 modifier = Modifier.size(14.dp)

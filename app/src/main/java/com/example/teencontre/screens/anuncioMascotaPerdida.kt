@@ -37,7 +37,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 
-
 // IMPORTACIONES DE TU CONFIGURACIÓN DE BASE DE DATOS
 import com.example.teencontre.data.DatabaseHelper
 import com.example.teencontre.data.MascotasPerdidasModel
@@ -92,7 +91,7 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                // Flecha Atrás (Posicionada al inicio del Box y adaptada al Modo Noche)
+                // Flecha Atrás
                 IconButton(
                     onClick = { if (step > 1 && step <= totalSteps) step-- else onBackToSelector() },
                     modifier = Modifier.align(Alignment.CenterStart)
@@ -108,49 +107,31 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
                 // Indicador circular de progreso
                 if (step <= totalSteps) {
                     Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.size(130.dp)
                     ) {
-                        IconButton(
-                            onClick = { if (step > 1 && step <= totalSteps) step-- else onBackToSelector() },
-                            modifier = Modifier.align(Alignment.CenterStart)
+                        CircularProgressIndicator(
+                            progress = { 1f },
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                            strokeWidth = 6.dp
+                        )
+                        val colorPrimario = MaterialTheme.colorScheme.primary
+                        val unCuartoDeVuelta = -90f
+                        val proporcionProgreso = step.toFloat() / totalSteps.toFloat()
+                        androidx.compose.foundation.Canvas(
+                            modifier = Modifier.fillMaxSize()
                         ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Atrás",
-                                tint = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                        if (step <= totalSteps) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.size(130.dp) // Tamaño exacto del circulo progresivo
-                            ) {
-                                CircularProgressIndicator(
-                                    progress = 1f,
-                                    modifier = Modifier.fillMaxSize(),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                                    strokeWidth = 6.dp
+                            drawArc(
+                                color = colorPrimario,
+                                startAngle = unCuartoDeVuelta,
+                                sweepAngle = 360f * proporcionProgreso,
+                                useCenter = false,
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                    width = 6.dp.toPx(),
+                                    cap = androidx.compose.ui.graphics.StrokeCap.Round
                                 )
-                                val colorPrimario = MaterialTheme.colorScheme.primary
-                                val unCuartoDeVuelta = -90f
-                                val proporcionProgreso = step.toFloat() / totalSteps.toFloat()
-                                androidx.compose.foundation.Canvas(
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    drawArc(
-                                        color = colorPrimario,
-                                        startAngle = unCuartoDeVuelta,
-                                        sweepAngle = 360f * proporcionProgreso,
-                                        useCenter = false,
-                                        style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                            width = 6.dp.toPx(),
-                                            cap = androidx.compose.ui.graphics.StrokeCap.Round
-                                        )
-                                    )
-                                }
-                            }
+                            )
                         }
                     }
                 }
@@ -190,7 +171,6 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
                         },
                         onDismissModal = { showConfirmarDireccionSheet = false }
                     )
-
                     4 -> PasoDescripcion(description) { description = it }
                     5 -> PasoContacto(
                         nombre = contactName, telefono = contactPhone, correo = contactEmail, aceptado = acceptedTerms,
@@ -252,6 +232,7 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
             }
         }
     }
+
     // --- DESPLIEGUE DE HOJAS EMERGENTES DE OMISIÓN ---
     if (showOmitirFotoSheet) {
         OmitirFotoSheet(
@@ -302,13 +283,13 @@ fun NavigationButtons(step: Int, accepted: Boolean, onNext: () -> Unit, onBack: 
             Button(
                 onClick = onOmit,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = Color(0xFF5E4BCE)
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
-                    .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(12.dp)),
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
                 elevation = ButtonDefaults.buttonElevation(0.dp)
             ) {
                 Text("Omitir", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
@@ -422,14 +403,14 @@ fun PasoFoto(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .background(Color.White, RoundedCornerShape(8.dp))
-                .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(8.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                 .clickable { galleryLauncher.launch("image/*") },
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "Añadir una foto",
-                color = Color(0xFFBDBDBD),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Normal
             )
@@ -444,8 +425,8 @@ fun PasoFoto(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) {
                     Box(
                         modifier = Modifier
                             .size(80.dp)
-                            .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
-                            .background(Color.White, RoundedCornerShape(8.dp)),
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(8.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
@@ -524,8 +505,8 @@ fun PasoUbicacion(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .background(Color.White, RoundedCornerShape(8.dp))
-                .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(8.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                 .clickable { showDatePicker = true }
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.CenterStart
@@ -538,13 +519,13 @@ fun PasoUbicacion(
                 val formattedDate = dateFormatter.format(java.util.Date(fecha))
                 Text(
                     text = formattedDate,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 15.sp
                 )
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
                     contentDescription = "Desplegar fecha",
-                    tint = Color(0xFF9E9E9E)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -560,17 +541,17 @@ fun PasoUbicacion(
         OutlinedTextField(
             value = lugar,
             onValueChange = onLugar,
-            placeholder = { Text("Ej. Distrito, parque, avenidas de referencia", color = Color(0xFFBDBDBD), fontSize = 15.sp) },
+            placeholder = { Text("Ej. Distrito, parque, avenidas de referencia", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontSize = 15.sp) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
             shape = RoundedCornerShape(8.dp),
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = Color(0xFFE0E0E0),
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
                 focusedTextColor = MaterialTheme.colorScheme.onBackground,
                 unfocusedTextColor = MaterialTheme.colorScheme.onBackground
             )
@@ -603,7 +584,7 @@ fun PasoUbicacion(
     if (mostrarModal) {
         ModalBottomSheet(
             onDismissRequest = onDismissModal,
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
         ) {
             Column(
@@ -616,7 +597,7 @@ fun PasoUbicacion(
                     text = "¿Es la dirección correcta?",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black,
+                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center
                 )
 
@@ -625,7 +606,7 @@ fun PasoUbicacion(
                 Text(
                     text = "Una dirección incorrecta reducirá la efectividad de su solicitud de mascota.",
                     fontSize = 14.sp,
-                    color = Color(0xFF555555),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     lineHeight = 20.sp
                 )
@@ -643,7 +624,7 @@ fun PasoUbicacion(
                     ),
                     shape = RoundedCornerShape(24.dp)
                 ) {
-                    Text("si, cierto", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                    Text("Sí, correcto", fontWeight = FontWeight.Medium, fontSize = 15.sp)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -654,8 +635,8 @@ fun PasoUbicacion(
                         .fillMaxWidth()
                         .height(46.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFF1F1F1),
-                        contentColor = Color(0xFF555555)
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     shape = RoundedCornerShape(24.dp)
                 ) {
@@ -667,6 +648,7 @@ fun PasoUbicacion(
         }
     }
 }
+
 @Composable
 fun PasoDescripcion(descripcion: String, onDescripcion: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -693,7 +675,6 @@ fun PasoContacto(
     nombre: String, telefono: String, correo: String, aceptado: Boolean,
     onNombre: (String) -> Unit, onTelefono: (String) -> Unit, onCorreo: (String) -> Unit, onAceptado: (Boolean) -> Unit
 ) {
-    // Estados internos para no alterar los parámetros originales de tu función
     var terminosAceptados by remember { mutableStateOf(false) }
     var mostrarModalTerminos by remember { mutableStateOf(false) }
 
@@ -722,7 +703,11 @@ fun PasoContacto(
             onValueChange = onNombre,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             shape = RoundedCornerShape(8.dp),
-            singleLine = true
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+            )
         )
 
         Spacer(Modifier.height(12.dp))
@@ -738,7 +723,11 @@ fun PasoContacto(
             onValueChange = onTelefono,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             shape = RoundedCornerShape(8.dp),
-            singleLine = true
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+            )
         )
 
         Spacer(Modifier.height(12.dp))
@@ -754,7 +743,11 @@ fun PasoContacto(
             onValueChange = onCorreo,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             shape = RoundedCornerShape(8.dp),
-            singleLine = true
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+            )
         )
 
         Spacer(Modifier.height(20.dp))
@@ -806,20 +799,19 @@ fun PasoContacto(
                     imageVector = Icons.Default.Info,
                     contentDescription = "Ver términos",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(start = 4.dp).size(15.dp)
-                        .clickable { mostrarModalTerminos = true }
+                    modifier = Modifier.padding(start = 4.dp).size(15.dp).clickable { mostrarModalTerminos = true }
                 )
             }
         }
     }
 
-    // --- DIÁLOGO DE TÉRMINOS  ---
+    // --- DIÁLOGO DE TÉRMINOS ---
     if (mostrarModalTerminos) {
         androidx.compose.ui.window.Dialog(onDismissRequest = { mostrarModalTerminos = false }) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(16.dp),
-                color = Color.White
+                color = MaterialTheme.colorScheme.surface
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp).fillMaxWidth(),
@@ -834,7 +826,7 @@ fun PasoContacto(
                             text = "Términos de Usuario",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1A1A)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         IconButton(
                             onClick = { mostrarModalTerminos = false },
@@ -843,7 +835,7 @@ fun PasoContacto(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Cerrar",
-                                tint = Color(0xFF9E9E9E)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -857,25 +849,25 @@ fun PasoContacto(
                         Text(
                             "1. USO RESPONSABLE: Esta plataforma es exclusivamente para facilitar la adopción y el reencuentro de mascotas.",
                             fontSize = 13.sp,
-                            color = Color(0xFF4A4A4A),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
                         )
                         Text(
                             "2. DATOS PERSONALES: Al registrarte, aceptas que tus datos de contacto sean visibles para otros usuarios cuando reportes o busques una mascota.",
                             fontSize = 13.sp,
-                            color = Color(0xFF4A4A4A),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
                         )
                         Text(
                             "3. PROHIBICIONES: Está estrictamente prohibido lucrar o vender animales a través de esta aplicación.",
                             fontSize = 13.sp,
-                            color = Color(0xFF4A4A4A),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
                         )
                         Text(
                             "4. COMUNIDAD: Nos reservamos el derecho de eliminar cuentas que realicen reportes falsos.",
                             fontSize = 13.sp,
-                            color = Color(0xFF4A4A4A),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
                         )
                     }
@@ -934,7 +926,7 @@ fun PantallaHecho(onFinished: () -> Unit) {
 fun OmitirFotoSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     ) {
         Column(
@@ -947,7 +939,7 @@ fun OmitirFotoSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                 text = "¿Omitir fotos?",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
 
@@ -956,7 +948,7 @@ fun OmitirFotoSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
             Text(
                 text = "Los anuncios con fotos tienen un 80% más de probabilidad de éxito.",
                 fontSize = 14.sp,
-                color = Color(0xFF555555),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 lineHeight = 20.sp
             )
@@ -985,8 +977,8 @@ fun OmitirFotoSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                     .fillMaxWidth()
                     .height(46.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFF1F1F1),
-                    contentColor = Color(0xFF555555)
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 shape = RoundedCornerShape(24.dp)
             ) {
@@ -1003,7 +995,7 @@ fun OmitirFotoSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
 fun OmitirDescripcionSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     ) {
         Column(
@@ -1016,7 +1008,7 @@ fun OmitirDescripcionSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                 text = "¿Omitir descripción?",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
 
@@ -1025,7 +1017,7 @@ fun OmitirDescripcionSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
             Text(
                 text = "Detalles como el color del collar o marcas ayudan a diferenciar a tu mascota.",
                 fontSize = 14.sp,
-                color = Color(0xFF555555),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 lineHeight = 20.sp
             )
@@ -1054,8 +1046,8 @@ fun OmitirDescripcionSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                     .fillMaxWidth()
                     .height(46.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFF1F1F1),
-                    contentColor = Color(0xFF555555)
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 shape = RoundedCornerShape(24.dp)
             ) {
