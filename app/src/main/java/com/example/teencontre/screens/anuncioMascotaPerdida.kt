@@ -36,10 +36,26 @@ import coil.compose.rememberAsyncImagePainter
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import com.google.android.gms.maps.model.LatLng
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.MapView
+import com.google.android.gms.maps.model.MarkerOptions
+import android.location.Geocoder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
+import androidx.compose.ui.text.TextStyle
 
 // IMPORTACIONES DE TU CONFIGURACIÓN DE BASE DE DATOS
 import com.example.teencontre.data.DatabaseHelper
 import com.example.teencontre.data.MascotasPerdidasModel
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,10 +73,12 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
     var petType by remember { mutableStateOf("Perro") }
     var gender by remember { mutableStateOf("Hembra") }
     var location by remember { mutableStateOf("") }
+    var selectedLatLng by remember { mutableStateOf<LatLng?>(null) }
+    var showMapPicker by remember { mutableStateOf(false) }
     var description by remember { mutableStateOf("") }
     var selectedDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var selectedPhotos by remember { mutableStateOf<List<Uri>>(emptyList()) }
-
+    val scope = rememberCoroutineScope()
     var contactName by remember { mutableStateOf(sharedPreferences.getString("userName", "") ?: "") }
     var contactPhone by remember { mutableStateOf(sharedPreferences.getString("userPhone", "") ?: "") }
     var contactEmail by remember { mutableStateOf(sharedPreferences.getString("userEmail", "") ?: "") }
@@ -72,7 +90,24 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
     var showConfirmarDireccionSheet by remember { mutableStateOf(false) }
 
     val sdf = SimpleDateFormat("dd/MM/yyyy", LocalLocale.current.platformLocale)
+    if (showMapPicker) {
+        SeleccionarUbicacionScreen(
+            onConfirmar = { latLng ->
+                selectedLatLng = latLng
+                location = "Obteniendo ubicación..."
 
+                scope.launch {
+                    val direccion = obtenerDireccionDesdeCoordenadas(context, latLng)
+                    location = direccion
+                    showMapPicker = false
+                }
+            },
+            onBack = {
+                showMapPicker = false
+            }
+        )
+        return
+    }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
@@ -162,9 +197,11 @@ fun WizardCrearAnuncio(onBackToSelector: () -> Unit) {
                     3 -> PasoUbicacion(
                         lugar = location,
                         fecha = selectedDate,
+                        selectedLatLng = selectedLatLng,
                         mostrarModal = showConfirmarDireccionSheet,
                         onLugar = { location = it },
                         onFecha = { selectedDate = it },
+                        onOpenMap = { showMapPicker = true },
                         onDireccionConfirmada = {
                             showConfirmarDireccionSheet = false
                             step++
@@ -464,12 +501,14 @@ fun PasoFoto(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) {
 fun PasoUbicacion(
     lugar: String,
     fecha: Long,
+    selectedLatLng: LatLng?,
     mostrarModal: Boolean,
     onLugar: (String) -> Unit,
     onFecha: (Long) -> Unit,
+    onOpenMap: () -> Unit,
     onDireccionConfirmada: () -> Unit,
     onDismissModal: () -> Unit
-) {
+){
     var showDatePicker by remember { mutableStateOf(false) }
 
     val dateFormatter = remember {
@@ -536,17 +575,44 @@ fun PasoUbicacion(
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onBackground
         )
+        Spacer(Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = onOpenMap,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("Seleccionar ubicación en el mapa")
+        }
+
+        if (selectedLatLng != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Ubicación seleccionada correctamente",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
         Spacer(modifier = Modifier.height(6.dp))
 
         OutlinedTextField(
             value = lugar,
             onValueChange = onLugar,
-            placeholder = { Text("Ej. Distrito, parque, avenidas de referencia", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontSize = 15.sp) },
+            placeholder = {
+                Text(
+                    "Ej. Distrito, calle, avenidas de referencia,\nparque, lote",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    fontSize = 16.sp
+                )
+            },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .heightIn(min = 80.dp, max = 150.dp), // Permite expandirse si la dirección es larga
             shape = RoundedCornerShape(8.dp),
-            singleLine = true,
+            singleLine = false, // Permite que el texto tenga varias líneas
+            maxLines = 5,       // Ajusta según lo que quieras mostrar
+            textStyle = TextStyle(fontSize = 16.sp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -1056,5 +1122,132 @@ fun OmitirDescripcionSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+}
+
+@Composable
+fun SeleccionarUbicacionScreen(
+    ubicacionInicial: LatLng = LatLng(-11.9592875, -77.0052892),
+    onConfirmar: (LatLng) -> Unit,
+    onBack: () -> Unit
+) {
+    var puntoSeleccionado by remember { mutableStateOf<LatLng?>(null) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        MapaSelector(
+            ubicacionInicial = ubicacionInicial,
+            onPuntoSeleccionado = { puntoSeleccionado = it }
+        )
+
+        Button(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 45.dp, start = 16.dp),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Text("Volver")
+        }
+
+        Button(
+            onClick = {
+                puntoSeleccionado?.let { onConfirmar(it) }
+            },
+            enabled = puntoSeleccionado != null,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(24.dp)
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("Confirmar ubicación")
+        }
+    }
+}
+
+@Composable
+fun MapaSelector(
+    ubicacionInicial: LatLng,
+    onPuntoSeleccionado: (LatLng) -> Unit
+) {
+    val context = LocalContext.current
+    val mapView = remember { MapView(context) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+    DisposableEffect(lifecycle, mapView) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_CREATE -> mapView.onCreate(null)
+                Lifecycle.Event.ON_START -> mapView.onStart()
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
+                else -> {}
+            }
+        }
+
+        lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycle.removeObserver(observer)
+        }
+    }
+
+    AndroidView(
+        factory = {
+            mapView.apply {
+                getMapAsync { googleMap ->
+                    googleMap.moveCamera(
+                        CameraUpdateFactory.newLatLngZoom(ubicacionInicial, 15f)
+                    )
+
+                    googleMap.setOnMapClickListener { latLng ->
+                        googleMap.clear()
+                        googleMap.addMarker(
+                            MarkerOptions()
+                                .position(latLng)
+                                .title("Última ubicación conocida")
+                        )
+                        onPuntoSeleccionado(latLng)
+                    }
+                }
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    )
+}
+
+suspend fun obtenerDireccionDesdeCoordenadas(
+    context: Context,
+    latLng: LatLng
+): String = withContext(Dispatchers.IO) {
+    try {
+        val geocoder = Geocoder(context, Locale("es", "PE"))
+        val direcciones = geocoder.getFromLocation(
+            latLng.latitude,
+            latLng.longitude,
+            1
+        )
+
+        val direccion = direcciones?.firstOrNull()
+
+        if (direccion != null) {
+            val partes = listOfNotNull(
+                direccion.thoroughfare,
+                direccion.subLocality,
+                direccion.locality,
+                direccion.adminArea
+            ).distinct()
+
+            partes.joinToString(", ").ifBlank {
+                direccion.getAddressLine(0) ?: "Ubicación seleccionada"
+            }
+        } else {
+            "Ubicación seleccionada"
+        }
+    } catch (e: Exception) {
+        "Ubicación seleccionada"
     }
 }
