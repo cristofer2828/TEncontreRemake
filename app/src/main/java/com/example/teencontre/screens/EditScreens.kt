@@ -86,10 +86,10 @@ fun EditPerdidoScreen(idMascota: Int, onBack: () -> Unit) {
                 OutlinedTextField(value = nombreM, onValueChange = { nombreM = it }, label = { Text("Nombre de la mascota") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
             }
             item {
-                OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
             }
             item {
-                OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
             }
             item {
                 OutlinedTextField(value = raza, onValueChange = { raza = it }, label = { Text("Raza") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
@@ -98,7 +98,7 @@ fun EditPerdidoScreen(idMascota: Int, onBack: () -> Unit) {
                 OutlinedTextField(value = fecha, onValueChange = { fecha = it }, label = { Text("Fecha y hora del extravío") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
             }
             item {
-                OutlinedTextField(value = lugar, onValueChange = { lugar = it }, label = { Text("Lugar / Zona") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = lugar, onValueChange = { lugar = it }, label = { Text("Lugar / Zona") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
             }
             item {
                 OutlinedTextField(value = contacto, onValueChange = { contacto = it }, label = { Text("Persona de Contacto") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
@@ -188,16 +188,16 @@ fun EditEncontradaScreen(idMascota: Int, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie (Perro, gato, etc.)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie (Perro, gato, etc.)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
             }
             item {
-                OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
             }
             item {
                 OutlinedTextField(value = fecha, onValueChange = { fecha = it }, label = { Text("Fecha y hora del hallazgo") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
             }
             item {
-                OutlinedTextField(value = lugar, onValueChange = { lugar = it }, label = { Text("Lugar donde se encontró") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = lugar, onValueChange = { lugar = it }, label = { Text("Lugar donde se encontró") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
             }
             item {
                 OutlinedTextField(value = contacto, onValueChange = { contacto = it }, label = { Text("Persona de Contacto") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
@@ -295,16 +295,16 @@ fun EditAdopcionScreen(idMascota: Int, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
             }
             item {
-                OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
             }
             item {
                 OutlinedTextField(value = raza, onValueChange = { raza = it }, label = { Text("Raza") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
             }
             item {
-                OutlinedTextField(value = tamano, onValueChange = { tamano = it }, label = { Text("Tamaño (Pequeño, Mediano, Grande)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = tamano, onValueChange = { tamano = it }, label = { Text("Tamaño (Pequeño, Mediano, Grande)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
             }
             item {
                 OutlinedTextField(value = temperamento, onValueChange = { temperamento = it }, label = { Text("Temperamento (Ej: Juguetón)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))

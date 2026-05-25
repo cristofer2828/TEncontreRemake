@@ -167,7 +167,8 @@ class MainActivity : ComponentActivity() {
                                 isDarkMode = isDarkMode,
                                 onDarkModeChange = { isDarkMode = it },
                                 onBack = { currentScreen = "profile" },
-                                onNavigate = { route -> currentScreen = route }
+                                onNavigate = { route -> currentScreen = route },
+                                onLogout = { currentScreen = "login" }
                             )
                             "encuentranos" -> EncuentranosScreen(
                                 onProfileClick = { currentScreen = "profile" },
@@ -558,9 +559,14 @@ fun CreateAnnouncementScreen(
                     onClick = onEncontreClick,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, primaryPurple)
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color(0xFF4CAF50), // Fondo verde
+                        contentColor = Color.White           // Texto blanco
+                    )
                 ) {
-                    Text("Encontré mascota", color = primaryPurple, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Encontré mascota",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold)
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -572,7 +578,7 @@ fun CreateAnnouncementScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         // Cambia el color a gris si no es organización
-                        containerColor = if (isOrganization) primaryPurple else Color.Gray.copy(alpha = 0.6f),
+                        containerColor = if (isOrganization) Color(0xFF03A9F4) else Color.Gray.copy(alpha = 0.6f),
                         contentColor = if (isOrganization) Color.White else Color.DarkGray
                     )
                 ) {
@@ -928,19 +934,6 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            Button(
-                onClick = onLogout,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .width(200.dp)
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD96666)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Cerrar sesión", fontWeight = FontWeight.Bold, color = Color.White)
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -1101,7 +1094,8 @@ fun SettingsScreen(
     isDarkMode: Boolean,
     onDarkModeChange: (Boolean) -> Unit,
     onBack: () -> Unit,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    onLogout: () -> Unit
 ) {
     val context = LocalContext.current
     val prefs = remember { PreferenceManager(context) }
@@ -1255,7 +1249,18 @@ fun SettingsScreen(
             ) {
                 Text("APLICAR", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
             }
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Button(
+                onClick = onLogout, // Cambia a onLogout si tienes esa función accesible aquí
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD96666)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Cerrar sesión", fontWeight = FontWeight.Bold, color = Color.White)
+            }
         }
     }
 }
