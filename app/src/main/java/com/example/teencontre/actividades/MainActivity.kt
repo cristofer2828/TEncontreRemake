@@ -68,6 +68,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.teencontre.data.model.RegisterRequest
 import android.content.ContentValues
+import android.widget.Toast
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -1739,27 +1741,74 @@ fun SettingsScreen(
     onNavigate: (String) -> Unit,
     onLogout: () -> Unit
 ) {
+
     val context = LocalContext.current
     val prefs = remember { PreferenceManager(context) }
 
-    // DATOS DE CONTACTO
-    var nombre by remember { mutableStateOf(prefs.getUserName()) }
-    var telefono by remember { mutableStateOf(prefs.getPhone()) }
-    var correo by remember { mutableStateOf(prefs.getEmail()) }
-    var emailNotifications by remember { mutableStateOf(prefs.getNotifications()) }
+    val usuario = remember {
+        prefs.getLoggedUser()
+    }
 
-    // DATOS DE SEGURIDAD
-    var passwordActual by remember { mutableStateOf("") }
-    var passwordNueva by remember { mutableStateOf("") }
-    var passwordRepetir by remember { mutableStateOf("") }
+    var nombre by remember {
 
-    // ESTADOS DE VISIBILIDAD DE CONTRASEÑA
-    var showPasswordActual by remember { mutableStateOf(false) }
-    var showPasswordNueva by remember { mutableStateOf(false) }
-    var showPasswordRepetir by remember { mutableStateOf(false) }
+        mutableStateOf(
+            when (usuario) {
+                is Usuario -> usuario.nombre
+                is Organizacion -> usuario.nombreOrg
+                else -> ""
+            }
+        )
+    }
+
+    var telefono by remember {
+
+        mutableStateOf(
+            if (usuario is Usuario)
+                usuario.telefono
+            else
+                ""
+        )
+    }
+
+    var correo by remember {
+
+        mutableStateOf(
+            usuario?.email ?: ""
+        )
+    }
+
+    var emailNotifications by remember {
+        mutableStateOf(prefs.getNotifications())
+    }
+
+    var passwordActual by remember {
+        mutableStateOf("")
+    }
+
+    var passwordNueva by remember {
+        mutableStateOf("")
+    }
+
+    var passwordRepetir by remember {
+        mutableStateOf("")
+    }
+
+    var showPasswordActual by remember {
+        mutableStateOf(false)
+    }
+
+    var showPasswordNueva by remember {
+        mutableStateOf(false)
+    }
+
+    var showPasswordRepetir by remember {
+        mutableStateOf(false)
+    }
 
     Scaffold(
+
         bottomBar = {
+
             BottomNavigationBar(
                 onProfileClick = { onBack() },
                 onPublishClick = { onNavigate("selector") },
@@ -1767,142 +1816,221 @@ fun SettingsScreen(
                 onMapaClick = { onNavigate("mapa") }
             )
         },
+
         containerColor = MaterialTheme.colorScheme.background
+
     ) { paddingValues ->
+
         Column(
+
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState())
+
         ) {
+
             Spacer(modifier = Modifier.height(16.dp))
 
-            // BOTÓN ATRÁS
-            TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("← Atrás", fontSize = 16.sp, color = MaterialTheme.colorScheme.primary)
-                }
+            TextButton(
+                onClick = onBack,
+                contentPadding = PaddingValues(0.dp)
+            ) {
+
+                Text(
+                    "← Atrás",
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
 
             Text(
                 text = "Ajustes",
                 fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(vertical = 8.dp)
+                fontWeight = FontWeight.Bold
             )
 
-            // MODO OSCURO
+            Spacer(modifier = Modifier.height(16.dp))
+
             Row(
+
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+
+                verticalAlignment =
+                    Alignment.CenterVertically
+
+            ) {
+
+                Text(
+                    "Modo oscuro",
+                    fontSize = 20.sp
+                )
+
+                Switch(
+                    checked = isDarkMode,
+                    onCheckedChange = onDarkModeChange
+                )
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+
+            Text(
+                "Información de contacto",
+                color = Color.Gray
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LoginInput(
+                label = "Nombre",
+                value = nombre,
+                onValueChange = { nombre = it },
+                placeholder = "Nombre"
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (usuario is Usuario) {
+
+                LoginInput(
+                    label = "Teléfono",
+                    value = telefono,
+                    onValueChange = {
+
+                        if (it.length <= 9)
+                            telefono = it
+                    },
+                    placeholder = "999999999"
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            LoginInput(
+                label = "Correo",
+                value = correo,
+                onValueChange = { correo = it },
+                placeholder = "correo@email.com"
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Modo oscuro", fontSize = 20.sp, color = MaterialTheme.colorScheme.onBackground)
-                Switch(checked = isDarkMode, onCheckedChange = { onDarkModeChange(it) })
-            }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp)
-
-            // SECCIÓN: INFORMACIÓN DE CONTACTO
-            Text("Información del contacto", color = Color.Gray, fontSize = 14.sp)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            LoginInput("Su nombre", nombre, { nombre = it }, "Nombre")
-            Spacer(modifier = Modifier.height(12.dp))
-            LoginInput("Número de teléfono", telefono, { if (it.length <= 9) telefono = it }, "+51")
-            Spacer(modifier = Modifier.height(12.dp))
-            LoginInput("Tu correo electrónico", correo, { correo = it }, "example@email.com")
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(
                     checked = emailNotifications,
-                    onCheckedChange = { emailNotifications = it; prefs.setNotifications(it) },
-                    modifier = Modifier.scale(0.8f)
+                    onCheckedChange = {
+
+                        emailNotifications = it
+                        prefs.setNotifications(it)
+                    }
                 )
-                Text("Notificaciones por correo", fontSize = 14.sp)
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    "Notificaciones por correo"
+                )
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp)
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
 
-            // SECCIÓN: SEGURIDAD
-            Text("Seguridad", color = Color.Gray, fontSize = 14.sp)
+            Text(
+                "Seguridad",
+                color = Color.Gray
+            )
+
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo 1: Contraseña Actual
             LoginInput(
-                label = "Tu contraseña actual",
+                label = "Contraseña actual",
                 value = passwordActual,
                 onValueChange = { passwordActual = it },
-                placeholder = "Contraseña",
-                isPassword = !showPasswordActual,
-                trailingIcon = {
-                    val icon = if (!showPasswordActual) android.R.drawable.ic_menu_view else android.R.drawable.ic_menu_close_clear_cancel
-                    IconButton(onClick = { showPasswordActual = !showPasswordActual }) {
-                        Icon(painter = painterResource(id = icon), contentDescription = null, modifier = Modifier.size(24.dp))
-                    }
-                }
+                placeholder = "********",
+                isPassword = !showPasswordActual
             )
+
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo 2: Nueva Contraseña
             LoginInput(
-                label = "Ingrese una nueva contraseña.",
+                label = "Nueva contraseña",
                 value = passwordNueva,
                 onValueChange = { passwordNueva = it },
-                placeholder = "Nueva contraseña",
-                isPassword = !showPasswordNueva,
-                trailingIcon = {
-                    val icon = if (!showPasswordNueva) android.R.drawable.ic_menu_view else android.R.drawable.ic_menu_close_clear_cancel
-                    IconButton(onClick = { showPasswordNueva = !showPasswordNueva }) {
-                        Icon(painter = painterResource(id = icon), contentDescription = null, modifier = Modifier.size(24.dp))
-                    }
-                }
+                placeholder = "********",
+                isPassword = !showPasswordNueva
             )
+
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo 3: Repetir Contraseña
             LoginInput(
-                label = "Repita la nueva contraseña.",
+                label = "Repetir contraseña",
                 value = passwordRepetir,
                 onValueChange = { passwordRepetir = it },
-                placeholder = "Nueva contraseña",
-                isPassword = !showPasswordRepetir,
-                trailingIcon = {
-                    val icon = if (!showPasswordRepetir) android.R.drawable.ic_menu_view else android.R.drawable.ic_menu_close_clear_cancel
-                    IconButton(onClick = { showPasswordRepetir = !showPasswordRepetir }) {
-                        Icon(painter = painterResource(id = icon), contentDescription = null, modifier = Modifier.size(24.dp))
-                    }
-                }
+                placeholder = "********",
+                isPassword = !showPasswordRepetir
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
+
                 onClick = {
-                    prefs.setUserName(nombre); prefs.setPhone(telefono); prefs.setEmail(correo)
+
+                    Toast
+                        .makeText(
+                            context,
+                            "Datos actualizados",
+                            Toast.LENGTH_SHORT
+                        )
+                        .show()
                 },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+
             ) {
-                Text("APLICAR", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+
+                Text("APLICAR")
             }
+
             Spacer(modifier = Modifier.height(10.dp))
 
             Button(
-                onClick = onLogout, // Cambia a onLogout si tienes esa función accesible aquí
+
+                onClick = {
+
+                    prefs.clearSession()
+
+                    onLogout()
+                },
+
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD96666)),
-                shape = RoundedCornerShape(12.dp)
+
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Red
+                )
+
             ) {
-                Text("Cerrar sesión", fontWeight = FontWeight.Bold, color = Color.White)
+
+                Text(
+                    "Cerrar sesión",
+                    color = Color.White
+                )
             }
+
+            Spacer(modifier = Modifier.height(30.dp))
         }
     }
 }

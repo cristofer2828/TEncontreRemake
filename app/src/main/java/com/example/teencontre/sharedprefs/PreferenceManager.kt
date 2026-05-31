@@ -62,6 +62,18 @@ class PreferenceManager(context: Context) {
         }
     }
 
+    fun clearSession() {
+
+        prefs.edit {
+            remove(KEY_USER_DATA)
+            remove(KEY_USER_ROLE)
+        }
+    }
+
+    fun updateLoggedUser(user: BaseUser) {
+
+        saveLoggedUser(user)
+    }
     fun saveLoggedUser(user: BaseUser) {
 
         val json = gson.toJson(user)
@@ -72,14 +84,6 @@ class PreferenceManager(context: Context) {
         }
     }
 
-    fun logout() {
 
-        prefs.edit {
-
-            remove(KEY_USER_DATA)
-            remove(KEY_USER_ROLE)
-
-        }
-    }
 }
 
