@@ -216,15 +216,22 @@ class MainActivity : ComponentActivity() {
 
 // --- PANTALLA: LOGIN ---
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
+fun LoginScreen(
+    onLoginSuccess: () -> Unit,
+    onRegisterClick: () -> Unit
+) {
+
+    val context = LocalContext.current
+    val prefs = remember { PreferenceManager(context) }
+
     val primaryColor = MaterialTheme.colorScheme.primary
-    val apiService = RetrofitClient.instance
-    // 1. ESTADOS PARA LOS INPUTS (Para que permitan escribir)
+
     var correo by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
-    // 2. ESTADO PARA LA VISIBILIDAD DE LA CONTRASEÑA
-    var passwordVisible by remember { mutableStateOf(false) }
+    var passwordVisible by remember {
+        mutableStateOf(false)
+    }
 
     Column(
         modifier = Modifier
@@ -233,14 +240,16 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
             .padding(horizontal = 30.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
         Spacer(modifier = Modifier.height(80.dp))
 
         Box(
-            modifier = Modifier
-                .size(250.dp)
+            modifier = Modifier.size(250.dp)
         ) {
             Image(
-                painter = painterResource(id = R.drawable.logo_perros),
+                painter = painterResource(
+                    id = R.drawable.logo_perros
+                ),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
@@ -275,8 +284,18 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
             placeholder = "Contraseña",
             isPassword = !passwordVisible,
             trailingIcon = {
-                val icon = if (passwordVisible) android.R.drawable.ic_menu_view else android.R.drawable.ic_menu_close_clear_cancel
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+
+                val icon =
+                    if (passwordVisible)
+                        android.R.drawable.ic_menu_view
+                    else
+                        android.R.drawable.ic_menu_close_clear_cancel
+
+                IconButton(
+                    onClick = {
+                        passwordVisible = !passwordVisible
+                    }
+                ) {
                     Icon(
                         painter = painterResource(id = icon),
                         contentDescription = "Ver contraseña",
@@ -289,9 +308,12 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
         Spacer(modifier = Modifier.height(30.dp))
 
         Button(
+
             onClick = {
 
-                if(correo.isEmpty() || password.isEmpty()){
+                Log.d("LOGIN", "Botón presionado")
+
+                if (correo.isBlank() || password.isBlank()) {
 
                     Log.e(
                         "LOGIN",
@@ -300,6 +322,11 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
 
                     return@Button
                 }
+
+                Log.d(
+                    "LOGIN",
+                    "Email ingresado: $correo"
+                )
 
                 CoroutineScope(Dispatchers.IO).launch {
 
@@ -310,25 +337,105 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
                             contrasena = password
                         )
 
+                        Log.d(
+                            "LOGIN",
+                            "Enviando petición al servidor..."
+                        )
+
                         val response =
                             RetrofitClient
                                 .instance
                                 .login(request)
 
-                        withContext(Dispatchers.Main){
+                        Log.d(
+                            "LOGIN",
+                            "Código HTTP: ${response.code()}"
+                        )
 
-                            if(response.isSuccessful){
+                        Log.d(
+                            "LOGIN",
+                            "Mensaje HTTP: ${response.message()}"
+                        )
+
+                        if (!response.isSuccessful) {
+
+                            Log.e(
+                                "LOGIN",
+                                "ErrorBody: ${response.errorBody()?.string()}"
+                            )
+                        }
+
+                        withContext(Dispatchers.Main) {
+
+                            if (response.isSuccessful) {
 
                                 val usuario = response.body()
 
                                 Log.d(
                                     "LOGIN",
-                                    "Bienvenido ${usuario?.email}"
+                                    "Respuesta recibida: $usuario"
+                                )
+
+                                if (usuario == null) {
+
+                                    Log.e(
+                                        "LOGIN",
+                                        "Retrofit recibió NULL"
+                                    )
+
+                                    return@withContext
+                                }
+
+                                Log.d(
+                                    "LOGIN",
+                                    "Tipo usuario: ${usuario.tipo}"
+                                )
+
+                                if (usuario.tipo == "USUARIO") {
+
+                                    Log.d(
+                                        "LOGIN",
+                                        "Guardando usuario normal"
+                                    )
+
+                                    prefs.saveLoggedUser(
+
+                                        Usuario(
+                                            id = usuario.id,
+                                            email = usuario.email,
+                                            nombre = usuario.nombre ?: "",
+                                            telefono = usuario.telefono ?: ""
+                                        )
+                                    )
+
+                                } else {
+
+                                    Log.d(
+                                        "LOGIN",
+                                        "Guardando organización"
+                                    )
+
+                                    prefs.saveLoggedUser(
+
+                                        Organizacion(
+                                            id = usuario.id,
+                                            email = usuario.email,
+                                            nombreOrg = usuario.nombreOrg ?: "",
+                                            ruc = usuario.ruc ?: "",
+                                            direccion = usuario.direccion ?: "",
+                                            esVerificada = usuario.esVerificada ?: false
+                                        )
+                                    )
+                                }
+
+                                Log.d(
+                                    "LOGIN",
+                                    "Login exitoso"
                                 )
 
                                 onLoginSuccess()
 
-                            }else{
+                            } else {
 
                                 Log.e(
                                     "LOGIN",
@@ -337,13 +444,18 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
                             }
                         }
 
-                    }catch (e: Exception){
+                    } catch (e: Exception) {
 
-                        withContext(Dispatchers.Main){
+                        withContext(Dispatchers.Main) {
 
                             Log.e(
                                 "LOGIN",
-                                e.message.toString()
+                                "EXCEPCIÓN COMPLETA"
+                            )
+
+                            Log.e(
+                                "LOGIN",
+                                Log.getStackTraceString(e)
                             )
                         }
                     }
@@ -359,12 +471,21 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
             colors = ButtonDefaults.buttonColors(
                 containerColor = primaryColor
             )
+
         ) {
+
             Text("Ingresar")
         }
 
-        TextButton(onClick = onRegisterClick) {
-            Text("Registrar", color = primaryColor, fontWeight = FontWeight.Bold)
+        TextButton(
+            onClick = onRegisterClick
+        ) {
+
+            Text(
+                text = "Registrar",
+                color = primaryColor,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -707,8 +828,20 @@ fun CreateAnnouncementScreen(
     val primaryPurple = MaterialTheme.colorScheme.primary
     var showDialog by remember { mutableStateOf(false) }
 
-    // Estado para habilitar el botón de Adopción (Simulación de Organización)
-    var isOrganization by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+
+    val prefs = remember {
+        PreferenceManager(context)
+    }
+
+    val usuario = remember {
+        prefs.getLoggedUser()
+    }
+
+    val puedePublicarAdopcion =
+        usuario is Organizacion &&
+                usuario.esVerificada
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Scaffold(
@@ -739,20 +872,23 @@ fun CreateAnnouncementScreen(
 
                 Spacer(modifier = Modifier.height(30.dp))
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 20.dp)
-                ) {
-                    Switch(
-                        checked = isOrganization,
-                        onCheckedChange = { isOrganization = it }
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
+                if (usuario is Organizacion) {
+
                     Text(
-                        "Simulación cuenta organización",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text =
+                            if (usuario.esVerificada)
+                                "✓ Organización verificada"
+                            else
+                                "⏳ Organización pendiente de verificación",
+                        color =
+                            if (usuario.esVerificada)
+                                Color(0xFF4CAF50)
+                            else
+                                Color.Red,
+                        fontWeight = FontWeight.Bold
                     )
+
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
 
                 Text(
@@ -792,28 +928,36 @@ fun CreateAnnouncementScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // BOTÓN: ADOPCIÓN (Bloqueado/Habilitado dinámicamente)
-                Button(
-                    onClick = { if (isOrganization) onAdopcionClick() },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        // Cambia el color a gris si no es organización
-                        containerColor = if (isOrganization) Color(0xFF03A9F4) else Color.Gray.copy(alpha = 0.6f),
-                        contentColor = if (isOrganization) Color.White else Color.DarkGray
-                    )
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Adopción", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        if (!isOrganization) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                painter = painterResource(id = android.R.drawable.ic_lock_idle_lock),
-                                contentDescription = "Bloqueado",
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                // BOTÓN: ADOPCIÓN (Bloqueado/mediantesharepref)
+                // Solo mostrar a organizaciones verificadas
+                if (puedePublicarAdopcion) {
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            onAdopcionClick()
+                        },
+
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+
+                        shape = RoundedCornerShape(12.dp),
+
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF03A9F4),
+                            contentColor = Color.White
+                        )
+                    ) {
+
+                        Text(
+                            text = "Adopción",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
+
                 }
             }
         }

@@ -7,18 +7,21 @@ sealed class UserRole(val type: String) {
 }
 
 // Clase base utilizando data class para facilitar la serialización
-open class BaseUser(
-    open val id: Int,
-    open val email: String,
-    val tipo: String
-)
+abstract class BaseUser {
+    abstract val id: Int
+    abstract val email: String
+    abstract val tipo: String
+}
 
 data class Usuario(
     override val id: Int,
     override val email: String,
     val nombre: String,
     val telefono: String
-) : BaseUser(id, email, UserRole.Usuario.type)
+) : BaseUser() {
+
+    override val tipo = "USUARIO"
+}
 
 data class Organizacion(
     override val id: Int,
@@ -27,7 +30,10 @@ data class Organizacion(
     val ruc: String,
     val direccion: String,
     val esVerificada: Boolean = false
-) : BaseUser(id, email, UserRole.Organizacion.type)
+) : BaseUser() {
+
+    override val tipo = "ORG"
+}
 
 
 data class RegisterRequest(
@@ -47,9 +53,12 @@ data class LoginRequest(val email: String, val contrasena: String)
 data class LoginResponse(
     val id: Int,
     val email: String,
-    val tipo: String, // "USUARIO" o "ORG"
+    val tipo: String,
     val nombre: String?,
+    val telefono: String?,
     val nombreOrg: String?,
+    val ruc: String?,
+    val direccion: String?,
     val esVerificada: Boolean?
 )
 
@@ -58,3 +67,4 @@ data class RegisterResponse(
     val message: String? = null,
     val error: String? = null
 )
+
