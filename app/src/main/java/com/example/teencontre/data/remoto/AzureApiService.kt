@@ -1,6 +1,7 @@
 package com.example.teencontre.data.remote
 
 import com.example.teencontre.data.model.ApiResponse
+import com.example.teencontre.data.model.EliminarRequest
 import com.example.teencontre.data.model.MascotasAdopcionModel
 import com.example.teencontre.data.model.MascotasEncontradasModel
 import com.example.teencontre.data.model.MascotasPerdidasModel
@@ -62,34 +63,30 @@ interface AzureApiService {
     @GET("api/Publicaciones/obtener_perdidos_usuario.php")
     suspend fun getPerdidosUsuario(
         @Query("idUsuario") id: Int
-    ): List<MascotasPerdidasModel>
+    ): Response<List<MascotasPerdidasModel>>
 
-    @PUT("api/Publicaciones/editar_perdido.php")
+    @POST("api/Publicaciones/editar_perdido.php")
     suspend fun editarPerdido(
         @Body mascota: MascotasPerdidasModel
     ): Response<ApiResponse>
 
-    @FormUrlEncoded
     @POST("api/Publicaciones/eliminar_perdido.php")
     suspend fun eliminarPerdido(
-        @Field("id")
-        id:Int
-    ): ApiResponse
+        @Body request: EliminarRequest
+    ): Response<ApiResponse>
 
     @GET("api/Publicaciones/obtener_perdidos.php")
     suspend fun obtenerPerdidos(): List<MascotasPerdidasModel>
 
     @POST("api/Publicaciones/eliminar_encontrado.php")
-    suspend fun eliminarEncontrados(
+    suspend fun eliminarEncontrado(
         @Query("id") id: Int
-    ): ApiResponse
+    ): Response<ApiResponse>
 
-    @FormUrlEncoded
     @POST("api/Publicaciones/eliminar_adopcion.php")
     suspend fun eliminarAdopcion(
-        @Field("id")
-        id:Int
-    ): ApiResponse
+        @Query("id") id: Int
+    ): Response<ApiResponse>
 
     @Multipart
     @POST("api/Publicaciones/insertar_encontrado.php")
@@ -107,14 +104,14 @@ interface AzureApiService {
     ): Response<ApiResponse>
 
     @POST("api/Publicaciones/editar_encontrado.php")
-    suspend fun editarMascotaEncontrada(
+    suspend fun editarEncontrado(
         @Body mascota: MascotasEncontradasModel
-    ): ApiResponse
+    ): Response<ApiResponse>
 
     @GET("api/Publicaciones/obtener_encontrados_usuario.php")
     suspend fun getEncontradosUsuario(
-        @Query("idUsuario") idUsuario: Int
-    ): List<MascotasEncontradasModel>
+        @Query("idUsuario") id: Int
+    ): Response<List<MascotasEncontradasModel>>
 
     @GET("api/Publicaciones/obtener_encontrados.php")
     suspend fun getEncontradosGlobal(): List<MascotasEncontradasModel>
@@ -142,7 +139,6 @@ interface AzureApiService {
 
     @GET("api/Publicaciones/obtener_adopciones.php")
     suspend fun obtenerMascotasAdopcion(): Response<AdopcionesResponse>
-
     data class AdopcionesResponse(
         val success: Boolean,
         val data: List<MascotasAdopcionModel>,
@@ -150,16 +146,19 @@ interface AzureApiService {
     )
 
 
+    @GET("api/Publicaciones/obtener_adopciones_usuario.php")
+    suspend fun obtenerAdopcionesPorUsuario(
+        @Query("idUsuario") id: Int
+    ): Response<List<MascotasAdopcionModel>>
+
+    @POST("api/Publicaciones/editar_adopcion.php")
+    suspend fun editarAdopcion(
+        @Body mascota: MascotasAdopcionModel
+    ): Response<ApiResponse>
 
 
 
 
-
-
-    @GET("api/adopciones/usuario/{id}")
-    suspend fun getAdopcionesUsuario(
-        @Path("id") id: Int
-    ): List<MascotasAdopcionModel>
 
 
 

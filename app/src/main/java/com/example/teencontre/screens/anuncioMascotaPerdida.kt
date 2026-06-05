@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Date
-
+import okhttp3.RequestBody.Companion.toRequestBody
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -348,8 +348,9 @@ fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
                                         )
 
                                         // Foto
-                                        val fotoPart = mascotaReportada.foto?.let { bytes ->
-                                            val requestFile = RequestBody.create(imageType, bytes)
+
+                                        val fotoPart = (mascotaReportada.foto as? ByteArray)?.let { bytes ->
+                                            val requestFile = bytes.toRequestBody(imageType) // O RequestBody.create(bytes, imageType)
 
                                             MultipartBody.Part.createFormData(
                                                 "foto",

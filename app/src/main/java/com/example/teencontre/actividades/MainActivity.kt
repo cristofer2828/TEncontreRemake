@@ -67,11 +67,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.teencontre.data.model.RegisterRequest
 import android.content.ContentValues
+import android.database.sqlite.SQLiteDatabase
 import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.compose.ui.graphics.asImageBitmap
 import com.example.teencontre.data.model.UpdateUserRequest
-import coil.compose.AsyncImage
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import com.example.teencontre.data.model.EliminarRequest
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -1118,11 +1122,9 @@ fun ProfileScreen(
     val dbHelper = remember { DatabaseHelper(context) }
     val coroutineScope = rememberCoroutineScope()
 
-    // INTEGRACIÓN DE TUS CLASES DE USUARIO:
     val usuarioLogueado: BaseUser? = remember { prefs.getLoggedUser() }
-    val idUserActual = usuarioLogueado?.id ?: 0 // ID del usuario actual
+    val idUserActual = usuarioLogueado?.id ?: 0
 
-    // Listas de estados para almacenar las publicaciones leídas
     var listaPerdidos by remember { mutableStateOf<List<MascotasPerdidasModel>>(emptyList()) }
     var listaEncontrados by remember { mutableStateOf<List<MascotasEncontradasModel>>(emptyList()) }
     var listaAdopciones by remember { mutableStateOf<List<MascotasAdopcionModel>>(emptyList()) }
@@ -1131,111 +1133,155 @@ fun ProfileScreen(
     val apiService = RetrofitClient.instance
 
     LaunchedEffect(refreshTrigger) {
-        try {
-            // =========================
-            // ONLINE → AZURE
-            // =========================
-            val idUser = usuarioLogueado?.id ?: 0
+        withContext(Dispatchers.IO) {
+            try {
+                // =========================================================
+                // 1. ONLINE → CONSULTA DIRECTA DESDE AZURE (CON RETROFIT RESPONSE)
+                // =========================================================
+                val idUser = usuarioLogueado?.id ?: 0
 
-            Log.d("PROBANDO_REDE", "Llamando a Perdidos...")
-            val perdidosOnline = apiService.getPerdidosUsuario(idUser)
+                Log.d("PROBANDO_RED", "Llamando a Perdidos de Azure...")
+                val responsePerdidos = apiService.getPerdidosUsuario(idUser)
+                val perdidosOnline = if (responsePerdidos.isSuccessful) {
+                    responsePerdidos.body() ?: emptyList()
+                } else emptyList()
 
-            Log.d("PROBANDO_REDE", "Llamando a Encontrados...")
-            val encontradosOnline = apiService.getEncontradosUsuario(idUser)
+                Log.d("PROBANDO_RED", "Llamando a Encontrados de Azure...")
+                val responseEncontrados = apiService.getEncontradosUsuario(idUser)
+                val encontradosOnline = if (responseEncontrados.isSuccessful) {
+                    responseEncontrados.body() ?: emptyList()
+                } else emptyList()
 
-            Log.d("PROBANDO_REDE", "Llamando a Adopciones...")
-            val adopcionesOnline = apiService.getAdopcionesUsuario(idUser)
+                Log.d("PROBANDO_RED", "Llamando a Adopciones usando obtener_adopciones_usuario.php...")
 
-            // Actualizar UI de inmediato con lo que viene de la red
-            listaPerdidos = perdidosOnline
-            listaEncontrados = encontradosOnline
-            listaAdopciones = adopcionesOnline
+                val responseAdopcion = apiService.obtenerAdopcionesPorUsuario(idUser)
 
-            // =========================
-            // ACTUALIZAR CACHE SQLITE
-            // =========================
-            val db = dbHelper.writableDatabase
-
-            // CORRECCIÓN: Limpiar solo el caché que le pertenece a ESTE usuario
-            db.delete(DatabaseHelper.TABLE_PERDIDOS, "${DatabaseHelper.PERDIDO_USER_ID} = ?", arrayOf(idUserActual.toString()))
-            perdidosOnline.forEach { mascota ->
-                val values = ContentValues().apply {
-                    put(DatabaseHelper.PERDIDO_ID, mascota.id)
-                    put(DatabaseHelper.PERDIDO_USER_ID, mascota.idUsuario)
-                    put(DatabaseHelper.PERDIDO_NOMBRE, mascota.nombreM)
-                    put(DatabaseHelper.PERDIDO_ESPECIE, mascota.especie)
-                    put(DatabaseHelper.PERDIDO_GENERO, mascota.genero)
-                    put(DatabaseHelper.PERDIDO_RAZA, mascota.raza)
-                    put(DatabaseHelper.PERDIDO_FOTO, mascota.foto)
-                    put(DatabaseHelper.PERDIDO_FECHA, mascota.fecha)
-                    put(DatabaseHelper.PERDIDO_LUGAR, mascota.lugar)
-                    put(DatabaseHelper.PERDIDO_DESCRIPCION, mascota.descripcion)
-                    put(DatabaseHelper.PERDIDO_CONTACTO, mascota.contacto)
-                    put(DatabaseHelper.PERDIDO_TELEFONO, mascota.telefono)
-                    put(DatabaseHelper.PERDIDO_CORREO, mascota.correo)
+                val adopcionesOnline = if (responseAdopcion.isSuccessful) {
+                    // responseAdopcion.body() ya contiene directamente la List<MascotasAdopcionModel>
+                    responseAdopcion.body() ?: emptyList()
+                } else {
+                    Log.e("PROBANDO_RED", "Error en respuesta de adopciones: ${responseAdopcion.code()}")
+                    emptyList()
                 }
-                db.insert(DatabaseHelper.TABLE_PERDIDOS, null, values)
-            }
 
-            db.delete(DatabaseHelper.TABLE_ENCONTRADOS, "${DatabaseHelper.ENCONTRADO_USER_ID} = ?", arrayOf(idUserActual.toString()))
-            encontradosOnline.forEach { mascota ->
-                val values = ContentValues().apply {
-                    put(DatabaseHelper.ENCONTRADO_ID, mascota.id)
-                    put(DatabaseHelper.ENCONTRADO_USER_ID, mascota.idUsuario)
-                    put(DatabaseHelper.ENCONTRADO_ESPECIE, mascota.especie)
-                    put(DatabaseHelper.ENCONTRADO_GENERO, mascota.genero)
-                    put(DatabaseHelper.ENCONTRADO_FOTO, mascota.foto)
-                    put(DatabaseHelper.ENCONTRADO_FECHA, mascota.fecha)
-                    put(DatabaseHelper.ENCONTRADO_LUGAR, mascota.lugar)
-                    put(DatabaseHelper.ENCONTRADO_DESCRIPCION, mascota.descripcion)
-                    put(DatabaseHelper.ENCONTRADO_CONTACTO, mascota.contacto)
-                    put(DatabaseHelper.ENCONTRADO_TELEFONO, mascota.telefono)
-                    put(DatabaseHelper.ENCONTRADO_CORREO, mascota.correo)
+                // Actualizar UI de inmediato con lo que viene de la red remota de Azure
+                withContext(Dispatchers.Main) {
+                    listaPerdidos = perdidosOnline
+                    listaEncontrados = encontradosOnline
+                    listaAdopciones = adopcionesOnline
                 }
-                db.insert(DatabaseHelper.TABLE_ENCONTRADOS, null, values)
-            }
 
-            db.delete(DatabaseHelper.TABLE_ADOPCION, "${DatabaseHelper.ADOPCION_USER_ID} = ?", arrayOf(idUserActual.toString()))
-            adopcionesOnline.forEach { mascota ->
-                val values = ContentValues().apply {
-                    put(DatabaseHelper.ADOPCION_ID, mascota.id)
-                    put(DatabaseHelper.ADOPCION_USER_ID, mascota.idUsuario)
-                    put(DatabaseHelper.ADOPCION_ESPECIE, mascota.especie)
-                    put(DatabaseHelper.ADOPCION_GENERO, mascota.genero)
-                    put(DatabaseHelper.ADOPCION_RAZA, mascota.raza)
-                    put(DatabaseHelper.ADOPCION_VACUNADO, mascota.vacunado)
-                    put(DatabaseHelper.ADOPCION_ESTERILIZADO, mascota.esterilizado)
-                    put(DatabaseHelper.ADOPCION_DESPARASITADO, mascota.desparasitado)
-                    put(DatabaseHelper.ADOPCION_TAMANO, mascota.tamano)
-                    put(DatabaseHelper.ADOPCION_TEMPERAMENTO, mascota.temperamento)
-                    put(DatabaseHelper.ADOPCION_FOTO, mascota.foto)
-                    put(DatabaseHelper.ADOPCION_DESCRIPCION, mascota.descripcion)
-                    put(DatabaseHelper.ADOPCION_ORGANIZACION, mascota.nombreOrganizacion)
-                    put(DatabaseHelper.ADOPCION_TELEFONO, mascota.telefono)
-                    put(DatabaseHelper.ADOPCION_CORREO, mascota.correo)
+                // =========================================================
+                // 2. ACTUALIZAR CACHÉ SQLITE (SOBREESCRITURA COMPLETA DESDE LA NUBE)
+                // =========================================================
+                val db = dbHelper.writableDatabase
+                db.beginTransaction()
+                try {
+                    // Sincronizar Caché de Perdidos
+                    db.delete(DatabaseHelper.TABLE_PERDIDOS, "${DatabaseHelper.PERDIDO_USER_ID} = ?", arrayOf(idUserActual.toString()))
+                    perdidosOnline.forEach { mascota ->
+                        val values = ContentValues().apply {
+                            put(DatabaseHelper.PERDIDO_ID, mascota.id)
+                            put(DatabaseHelper.PERDIDO_USER_ID, mascota.idUsuario)
+                            put(DatabaseHelper.PERDIDO_NOMBRE, mascota.nombreM ?: "")
+                            put(DatabaseHelper.PERDIDO_ESPECIE, mascota.especie ?: "")
+                            put(DatabaseHelper.PERDIDO_GENERO, mascota.genero ?: "")
+                            put(DatabaseHelper.PERDIDO_RAZA, mascota.raza ?: "")
+
+                            // CORREGIDO: Casteo seguro con 'as Any?' para evitar error de tipos incompatibles
+                            val fotoBytes: ByteArray? = when (val fotoRaw = mascota.foto as Any?) {
+                                is ByteArray -> fotoRaw
+                                is String -> if (fotoRaw.isNotEmpty()) android.util.Base64.decode(fotoRaw, android.util.Base64.DEFAULT) else null
+                                else -> null
+                            }
+                            put(DatabaseHelper.PERDIDO_FOTO, fotoBytes)
+
+                            // Aquí continúa el resto de tus campos (fecha, lugar, descripción, etc.)
+                            put(DatabaseHelper.PERDIDO_FECHA, mascota.fecha ?: "")
+                            put(DatabaseHelper.PERDIDO_LUGAR, mascota.lugar ?: "")
+                            put(DatabaseHelper.PERDIDO_DESCRIPCION, mascota.descripcion ?: "")
+                            put(DatabaseHelper.PERDIDO_CONTACTO, mascota.contacto ?: "")
+                            put(DatabaseHelper.PERDIDO_TELEFONO, mascota.telefono ?: "")
+                            put(DatabaseHelper.PERDIDO_CORREO, mascota.correo ?: "")
+                        }
+                        db.insertWithOnConflict(DatabaseHelper.TABLE_PERDIDOS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+                    }
+
+                    // Sincronizar Caché de Encontrados
+                    db.delete(DatabaseHelper.TABLE_ENCONTRADOS, "${DatabaseHelper.ENCONTRADO_USER_ID} = ?", arrayOf(idUserActual.toString()))
+                    encontradosOnline.forEach { mascota ->
+                        val values = ContentValues().apply {
+                            put(DatabaseHelper.ENCONTRADO_ID, mascota.id)
+                            put(DatabaseHelper.ENCONTRADO_USER_ID, mascota.idUsuario)
+                            put(DatabaseHelper.ENCONTRADO_ESPECIE, mascota.especie ?: "")
+                            put(DatabaseHelper.ENCONTRADO_GENERO, mascota.genero ?: "")
+
+                            // CORREGIDO: Añadido 'as Any?' para permitir la evaluación dinámica de tipo
+                            val fotoBytes: ByteArray? = when (val fotoRaw = mascota.foto as Any?) {
+                                is ByteArray -> fotoRaw
+                                is String -> if (fotoRaw.isNotEmpty()) android.util.Base64.decode(fotoRaw, android.util.Base64.DEFAULT) else null
+                                else -> null
+                            }
+                            put(DatabaseHelper.ENCONTRADO_FOTO, fotoBytes)
+
+                            put(DatabaseHelper.ENCONTRADO_FECHA, mascota.fecha ?: "")
+                            put(DatabaseHelper.ENCONTRADO_LUGAR, mascota.lugar ?: "")
+                            put(DatabaseHelper.ENCONTRADO_DESCRIPCION, mascota.descripcion ?: "")
+                            put(DatabaseHelper.ENCONTRADO_CONTACTO, mascota.contacto ?: "")
+                            put(DatabaseHelper.ENCONTRADO_TELEFONO, mascota.telefono ?: "")
+                            put(DatabaseHelper.ENCONTRADO_CORREO, mascota.correo ?: "")
+                        }
+                        db.insertWithOnConflict(DatabaseHelper.TABLE_ENCONTRADOS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+                    }
+
+                    // Sincronizar Caché de Adopciones
+                    db.delete(DatabaseHelper.TABLE_ADOPCION, "${DatabaseHelper.ADOPCION_USER_ID} = ?", arrayOf(idUserActual.toString()))
+                    adopcionesOnline.forEach { mascota ->
+                        val values = ContentValues().apply {
+                            put(DatabaseHelper.ADOPCION_ID, mascota.id)
+                            put(DatabaseHelper.ADOPCION_USER_ID, mascota.idUsuario)
+                            put(DatabaseHelper.ADOPCION_ESPECIE, mascota.especie ?: "")
+                            put(DatabaseHelper.ADOPCION_GENERO, mascota.genero ?: "")
+                            put(DatabaseHelper.ADOPCION_RAZA, mascota.raza ?: "")
+                            put(DatabaseHelper.ADOPCION_VACUNADO, if (mascota.vacunado) 1 else 0)
+                            put(DatabaseHelper.ADOPCION_ESTERILIZADO, if (mascota.esterilizado) 1 else 0)
+                            put(DatabaseHelper.ADOPCION_DESPARASITADO, if (mascota.desparasitado) 1 else 0)
+                            put(DatabaseHelper.ADOPCION_TAMANO, mascota.tamano ?: "")
+                            put(DatabaseHelper.ADOPCION_TEMPERAMENTO, mascota.temperamento ?: "")
+
+                            val fotoBytes: ByteArray? = when (val fotoRaw = mascota.foto as Any?) {
+                                is ByteArray -> fotoRaw
+                                is String -> if (fotoRaw.isNotEmpty()) android.util.Base64.decode(fotoRaw, android.util.Base64.DEFAULT) else null
+                                else -> null
+                            }
+                            put(DatabaseHelper.ADOPCION_FOTO, fotoBytes)
+
+                            put(DatabaseHelper.ADOPCION_DESCRIPCION, mascota.descripcion ?: "")
+                            put(DatabaseHelper.ADOPCION_ORGANIZACION, mascota.nombreOrganizacion ?: "")
+                            put(DatabaseHelper.ADOPCION_TELEFONO, mascota.telefono ?: "")
+                            put(DatabaseHelper.ADOPCION_CORREO, mascota.correo ?: "")
+                        }
+                        db.insertWithOnConflict(DatabaseHelper.TABLE_ADOPCION, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+                    }
+                    db.setTransactionSuccessful()
+                    Log.d("SYNC", "Datos localmente sincronizados exitosamente desde Azure.")
+                } finally {
+                    db.endTransaction()
                 }
-                db.insert(DatabaseHelper.TABLE_ADOPCION, null, values)
-            }
 
-            Log.d("SYNC", "Datos sincronizados con Azure")
+            } catch (e: Exception) {
+                // =========================================================
+                // 3. OFFLINE → SQLITE LOCAL (Si falla la conexión de red)
+                // =========================================================
+                Log.e("OFFLINE", "Sin internet, cargando datos locales filtrados por usuario", e)
+                val db = dbHelper.readableDatabase
 
-        } catch (e: Exception) {
-            // =========================
-            // OFFLINE → SQLITE
-            // =========================
-            Log.e("OFFLINE", "Sin internet, usando SQLite local", e)
-            val db = dbHelper.readableDatabase
-
-            // CORRECCIÓN: Filtrar las lecturas locales por el ID del usuario actual usando WHERE
-            val listaP = mutableListOf<MascotasPerdidasModel>()
-            val cursorP = db.rawQuery(
-                "SELECT * FROM ${DatabaseHelper.TABLE_PERDIDOS} WHERE ${DatabaseHelper.PERDIDO_USER_ID} = ?",
-                arrayOf(idUserActual.toString())
-            )
-            if (cursorP.moveToFirst()) {
-                do {
-                    listaP.add(
-                        MascotasPerdidasModel(
+                // Cargar Perdidos locales
+                val listaP = mutableListOf<MascotasPerdidasModel>()
+                val cursorP = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_PERDIDOS} WHERE ${DatabaseHelper.PERDIDO_USER_ID} = ?", arrayOf(idUserActual.toString()))
+                if (cursorP.moveToFirst()) {
+                    do {
+                        listaP.add(MascotasPerdidasModel(
                             id = cursorP.getInt(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_ID)),
                             idUsuario = cursorP.getInt(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_USER_ID)),
                             nombreM = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_NOMBRE)),
@@ -1249,22 +1295,17 @@ fun ProfileScreen(
                             contacto = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_CONTACTO)),
                             telefono = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_TELEFONO)),
                             correo = cursorP.getString(cursorP.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_CORREO))
-                        )
-                    )
-                } while (cursorP.moveToNext())
-            }
-            cursorP.close()
-            listaPerdidos = listaP
+                        ))
+                    } while (cursorP.moveToNext())
+                }
+                cursorP.close()
 
-            val listaE = mutableListOf<MascotasEncontradasModel>()
-            val cursorE = db.rawQuery(
-                "SELECT * FROM ${DatabaseHelper.TABLE_ENCONTRADOS} WHERE ${DatabaseHelper.ENCONTRADO_USER_ID} = ?",
-                arrayOf(idUserActual.toString())
-            )
-            if (cursorE.moveToFirst()) {
-                do {
-                    listaE.add(
-                        MascotasEncontradasModel(
+                // Cargar Encontrados locales
+                val listaE = mutableListOf<MascotasEncontradasModel>()
+                val cursorE = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_ENCONTRADOS} WHERE ${DatabaseHelper.ENCONTRADO_USER_ID} = ?", arrayOf(idUserActual.toString()))
+                if (cursorE.moveToFirst()) {
+                    do {
+                        listaE.add(MascotasEncontradasModel(
                             id = cursorE.getInt(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_ID)),
                             idUsuario = cursorE.getInt(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_USER_ID)),
                             especie = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_ESPECIE)),
@@ -1276,22 +1317,17 @@ fun ProfileScreen(
                             contacto = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_CONTACTO)),
                             telefono = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_TELEFONO)),
                             correo = cursorE.getString(cursorE.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_CORREO))
-                        )
-                    )
-                } while (cursorE.moveToNext())
-            }
-            cursorE.close()
-            listaEncontrados = listaE
+                        ))
+                    } while (cursorE.moveToNext())
+                }
+                cursorE.close()
 
-            val listaA = mutableListOf<MascotasAdopcionModel>()
-            val cursorA = db.rawQuery(
-                "SELECT * FROM ${DatabaseHelper.TABLE_ADOPCION} WHERE ${DatabaseHelper.ADOPCION_USER_ID} = ?",
-                arrayOf(idUserActual.toString())
-            )
-            if (cursorA.moveToFirst()) {
-                do {
-                    listaA.add(
-                        MascotasAdopcionModel(
+                // Cargar Adopciones locales
+                val listaA = mutableListOf<MascotasAdopcionModel>()
+                val cursorA = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_ADOPCION} WHERE ${DatabaseHelper.ADOPCION_USER_ID} = ?", arrayOf(idUserActual.toString()))
+                if (cursorA.moveToFirst()) {
+                    do {
+                        listaA.add(MascotasAdopcionModel(
                             id = cursorA.getInt(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ID)),
                             idUsuario = cursorA.getInt(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_USER_ID)),
                             especie = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ESPECIE)),
@@ -1307,14 +1343,21 @@ fun ProfileScreen(
                             nombreOrganizacion = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ORGANIZACION)),
                             telefono = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TELEFONO)),
                             correo = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_CORREO))
-                        )
-                    )
-                } while (cursorA.moveToNext())
+                        ))
+                    } while (cursorA.moveToNext())
+                }
+                cursorA.close()
+
+                withContext(Dispatchers.Main) {
+                    listaPerdidos = listaP
+                    listaEncontrados = listaE
+                    listaAdopciones = listaA
+                }
             }
-            cursorA.close()
-            listaAdopciones = listaA
         }
     }
+
+    val totalAnuncios = listaPerdidos.size + listaEncontrados.size + listaAdopciones.size
 
     Scaffold(
         bottomBar = {
@@ -1327,95 +1370,90 @@ fun ProfileScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState())
         ) {
-            Spacer(modifier = Modifier.height(40.dp))
+            item {
+                Spacer(modifier = Modifier.height(40.dp))
 
-            when (usuarioLogueado) {
-                is Usuario -> {
-                    Text(
-                        text = "Hola, ${usuarioLogueado.nombre}",
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Text(
-                        text = "Teléfono: ${usuarioLogueado.telefono} • Cuenta Usuario",
-                        fontSize = 13.sp,
-                        color = Color.Gray
-                    )
+                // --- SECCIÓN ENCABEZADO DE USUARIO ---
+                when (usuarioLogueado) {
+                    is Usuario -> {
+                        Text(text = "Hola, ${usuarioLogueado.nombre}", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                        Text(text = "Teléfono: ${usuarioLogueado.telefono} • Cuenta Usuario", fontSize = 13.sp, color = Color.Gray)
+                    }
+                    is Organizacion -> {
+                        Text(text = usuarioLogueado.nombreOrg, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                        Text(text = "RUC: ${usuarioLogueado.ruc} • Verificada: ${if(usuarioLogueado.esVerificada) "Sí" else "No"}", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                    }
+                    else -> {
+                        Text(text = "Mi perfil", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                    }
                 }
-                is Organizacion -> {
-                    Text(
-                        text = usuarioLogueado.nombreOrg,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Text(
-                        text = "RUC: ${usuarioLogueado.ruc} • Verificada: ${if(usuarioLogueado.esVerificada) "Sí" else "No"}",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                else -> {
-                    Text(
-                        text = "Mi perfil",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                ProfileOptionsCard(onNavigate = onNavigate)
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Text(text = "Mis anuncios", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-            ProfileOptionsCard(onNavigate = onNavigate)
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Text(
-                text = "Mis anuncios",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            val totalAnuncios = listaPerdidos.size + listaEncontrados.size +
-                    (if (usuarioLogueado is Organizacion) listaAdopciones.size else 0)
-
             if (totalAnuncios > 0) {
-                listaPerdidos.forEach { mascota ->
+                // 1. RENDER PERDIDOS
+                items(listaPerdidos) { mascota ->
                     AdItemCard(
-                        description = mascota.nombreM,
+                        description = mascota.nombreM ?: "Sin nombre",
                         status = "PERDIDA",
-                        location = mascota.lugar,
-                        fotoBytes = mascota.foto,
+                        location = mascota.lugar ?: "No especificado",
+                        fotoBytes = when (val f = mascota.foto as Any?) {
+                            is ByteArray -> f
+                            is String -> if (f.isNotEmpty()) android.util.Base64.decode(f, android.util.Base64.DEFAULT) else null
+                            else -> null
+                        },
                         onEdit = { onNavigate("editar_perdido/${mascota.id}") },
                         onDelete = {
                             coroutineScope.launch(Dispatchers.IO) {
-                                try {
-                                    // CORRECCIÓN: El borrado local SOLO ocurre si la red no arroja error catastrófico
-                                    apiService.eliminarPerdido(mascota.id)
+                                // Aseguramos capturar el ID exacto antes de entrar a la operación de red
+                                val idMascota = mascota.id
 
-                                    dbHelper.writableDatabase.delete(
-                                        DatabaseHelper.TABLE_PERDIDOS,
-                                        "${DatabaseHelper.PERDIDO_ID}=?",
-                                        arrayOf(mascota.id.toString())
+                                try {
+                                    Log.d("DELETE_AZURE", "Intentando eliminar mascota con ID: $idMascota")
+                                    val response = apiService.eliminarPerdido(
+                                        EliminarRequest(
+                                            idMascota
+                                        )
                                     )
-                                    withContext(Dispatchers.Main) {
-                                        refreshTrigger++
-                                        Toast.makeText(context, "Anuncio eliminado", Toast.LENGTH_SHORT).show()
+
+                                    if (response.isSuccessful) {
+                                        // 1. Borramos localmente usando el ID verificado
+                                        dbHelper.writableDatabase.delete(
+                                            DatabaseHelper.TABLE_PERDIDOS,
+                                            "${DatabaseHelper.PERDIDO_ID}=?",
+                                            arrayOf(idMascota.toString())
+                                        )
+
+                                        // 2. Notificamos a la interfaz en el hilo principal
+                                        withContext(Dispatchers.Main) {
+                                            refreshTrigger++ // Esto forzará a recomponer y actualizar tu lista automáticamente
+                                            Toast.makeText(context, "Anuncio eliminado correctamente", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } else {
+                                        // Si Azure responde con un código de error (ej. 400 o 500)
+                                        val errorBody = response.errorBody()?.string()
+                                        Log.e("DELETE_AZURE", "Servidor rechazó la eliminación: $errorBody")
+
+                                        withContext(Dispatchers.Main) {
+                                            Toast.makeText(context, "El servidor rechazó la eliminación", Toast.LENGTH_LONG).show()
+                                        }
                                     }
                                 } catch (e: Exception) {
-                                    Log.e("DELETE", "Fallo al conectar con Azure", e)
+                                    Log.e("DELETE_AZURE", "Error de red o excepción al eliminar", e)
                                     withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Error de red: No se pudo eliminar en Azure", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Error de red al conectar con Azure", Toast.LENGTH_LONG).show()
                                     }
                                 }
                             }
@@ -1423,30 +1461,51 @@ fun ProfileScreen(
                     )
                 }
 
-                listaEncontrados.forEach { mascota ->
+                // 2. RENDER ENCONTRADOS
+                items(listaEncontrados) { mascota ->
                     AdItemCard(
-                        description = "Especie: ${mascota.especie}",
+                        description = if (!mascota.especie.isNullOrEmpty()) "Especie: ${mascota.especie}" else "Especie no especificada",
                         status = "ENCONTRADA",
-                        location = mascota.lugar,
-                        fotoBytes = mascota.foto,
+                        location = mascota.lugar ?: "No especificado",
+                        fotoBytes = when (val f = mascota.foto as Any?) {
+                            is ByteArray -> f
+                            is String -> if (f.isNotEmpty()) android.util.Base64.decode(f, android.util.Base64.DEFAULT) else null
+                            else -> null
+                        },
                         onEdit = { onNavigate("editar_encontrada/${mascota.id}") },
                         onDelete = {
                             coroutineScope.launch(Dispatchers.IO) {
-                                try {
-                                    apiService.eliminarEncontrados(mascota.id)
+                                // Aseguramos capturar el ID exacto antes de la operación de red
+                                val idMascota = mascota.id
 
-                                    dbHelper.writableDatabase.delete(
-                                        DatabaseHelper.TABLE_ENCONTRADOS,
-                                        "${DatabaseHelper.ENCONTRADO_ID}=?",
-                                        arrayOf(mascota.id.toString())
-                                    )
-                                    withContext(Dispatchers.Main) {
-                                        refreshTrigger++
-                                        Toast.makeText(context, "Anuncio eliminado", Toast.LENGTH_SHORT).show()
+                                try {
+                                    android.util.Log.d("DELETE_AZURE", "Intentando eliminar encontrada con ID: $idMascota")
+                                    val response = apiService.eliminarEncontrado(idMascota)
+
+                                    if (response.isSuccessful) {
+                                        // 1. Borramos localmente de la tabla addEncontrada
+                                        dbHelper.writableDatabase.delete(
+                                            DatabaseHelper.TABLE_ENCONTRADOS,
+                                            "${DatabaseHelper.ENCONTRADO_ID}=?",
+                                            arrayOf(idMascota.toString())
+                                        )
+
+                                        // 2. Notificamos en el hilo principal y refrescamos la pantalla
+                                        withContext(Dispatchers.Main) {
+                                            refreshTrigger++ // Forzará la actualización automática de la lista
+                                            Toast.makeText(context, "Anuncio eliminado correctamente", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } else {
+                                        val errorBody = response.errorBody()?.string()
+                                        android.util.Log.e("DELETE_AZURE", "Servidor rechazó la eliminación: $errorBody")
+                                        withContext(Dispatchers.Main) {
+                                            Toast.makeText(context, "El servidor rechazó la eliminación", Toast.LENGTH_LONG).show()
+                                        }
                                     }
                                 } catch (e: Exception) {
+                                    android.util.Log.e("DELETE_AZURE", "Error de red al eliminar encontrada", e)
                                     withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Error de red: No se pudo eliminar en Azure", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Error de red al conectar con Azure", Toast.LENGTH_LONG).show()
                                     }
                                 }
                             }
@@ -1454,43 +1513,68 @@ fun ProfileScreen(
                     )
                 }
 
-                if (usuarioLogueado is Organizacion) {
-                    listaAdopciones.forEach { mascota ->
-                        AdItemCard(
-                            description = "${mascota.especie} (${mascota.raza})",
-                            status = "ADOPCION",
-                            location = mascota.nombreOrganizacion,
-                            fotoBytes = mascota.foto,
-                            onEdit = { onNavigate("editar_adopcion/${mascota.id}") },
-                            onDelete = {
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    try {
-                                        apiService.eliminarAdopcion(mascota.id)
+                // 3. RENDER ADOPCIONES
+                items(listaAdopciones) { mascota ->
+                    val esp = mascota.especie ?: "Mascota"
+                    val raz = mascota.raza ?: "Mestizo"
+                    AdItemCard(
+                        description = "$esp ($raz)",
+                        status = "ADOPCION",
+                        location = mascota.nombreOrganizacion ?: "Particular",
+                        fotoBytes = when (val f = mascota.foto as Any?) {
+                            is ByteArray -> f
+                            is String -> if (f.isNotEmpty()) android.util.Base64.decode(f, android.util.Base64.DEFAULT) else null
+                            else -> null
+                        },
+                        onEdit = { onNavigate("editar_adopcion/${mascota.id}") },
+                        onDelete = {
+                            coroutineScope.launch(Dispatchers.IO) {
+                                // Aseguramos capturar el ID exacto antes de la operación de red
+                                val idMascota = mascota.id
 
+                                try {
+                                    android.util.Log.d("DELETE_AZURE", "Intentando eliminar adopción con ID: $idMascota")
+                                    val response = apiService.eliminarAdopcion(idMascota)
+
+                                    if (response.isSuccessful) {
+                                        // 1. Borramos localmente de la tabla addAdopcion
                                         dbHelper.writableDatabase.delete(
                                             DatabaseHelper.TABLE_ADOPCION,
                                             "${DatabaseHelper.ADOPCION_ID}=?",
-                                            arrayOf(mascota.id.toString())
+                                            arrayOf(idMascota.toString())
                                         )
+
+                                        // 2. Notificamos en el hilo principal y refrescamos la pantalla
                                         withContext(Dispatchers.Main) {
-                                            refreshTrigger++
-                                            Toast.makeText(context, "Anuncio eliminado", Toast.LENGTH_SHORT).show()
+                                            refreshTrigger++ // Forzará la actualización automática de la lista
+                                            Toast.makeText(context, "Anuncio eliminado correctamente", Toast.LENGTH_SHORT).show()
                                         }
-                                    } catch (e: Exception) {
+                                    } else {
+                                        val errorBody = response.errorBody()?.string()
+                                        android.util.Log.e("DELETE_AZURE", "Servidor rechazó la eliminación: $errorBody")
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Error de red: No se pudo eliminar en Azure", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, "El servidor rechazó la eliminación", Toast.LENGTH_LONG).show()
                                         }
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("DELETE_AZURE", "Error de red al eliminar adopción", e)
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Error de red al conectar con Azure", Toast.LENGTH_LONG).show()
                                     }
                                 }
                             }
-                        )
-                    }
+                        }
+                    )
                 }
             } else {
-                NoAdsCard()
+                item {
+                    NoAdsCard()
+                }
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            item {
+                Spacer(modifier = Modifier.height(40.dp))
+            }
         }
     }
 }
@@ -1527,7 +1611,6 @@ fun AdItemCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1537,14 +1620,12 @@ fun AdItemCard(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
-
         Row(
             modifier = Modifier
                 .padding(12.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             Box(
                 modifier = Modifier
                     .size(64.dp)
@@ -1552,16 +1633,11 @@ fun AdItemCard(
                     .background(Color.LightGray),
                 contentAlignment = Alignment.Center
             ) {
-                // 1. Corregido: Agregamos los paréntesis () a isNullOrEmpty()
                 if (fotoBytes != null && fotoBytes.isNotEmpty()) {
-
-                    // 2. Convertimos el ByteArray en un ImageBitmap que Android pueda renderizar
                     val bitmap = remember(fotoBytes) {
                         BitmapFactory.decodeByteArray(fotoBytes, 0, fotoBytes.size)?.asImageBitmap()
                     }
-
                     if (bitmap != null) {
-                        // Dibujamos la imagen directamente desde la memoria (sin URLs de internet)
                         Image(
                             bitmap = bitmap,
                             contentDescription = "Foto mascota",
@@ -1569,19 +1645,10 @@ fun AdItemCard(
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        // Por si ocurre un fallo al decodificar los bytes
-                        Text(
-                            text = "🐾",
-                            fontSize = 24.sp
-                        )
+                        Text(text = "🐾", fontSize = 24.sp)
                     }
-
                 } else {
-                    // Si no hay foto en la base de datos, mostramos el huellito estándar
-                    Text(
-                        text = "🐾",
-                        fontSize = 24.sp
-                    )
+                    Text(text = "🐾", fontSize = 24.sp)
                 }
             }
 
@@ -1590,34 +1657,23 @@ fun AdItemCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-
                 Text(
                     text = description,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-
                 Text(
                     text = status.uppercase(),
                     color = when (status.uppercase()) {
-
-                        "PERDIDA" ->
-                            Color(0xFF7C4DFF)
-
-                        "ENCONTRADA" ->
-                            Color(0xFF4CAF50)
-
-                        "ADOPCION" ->
-                            Color(0xFF2196F3)
-
-                        else ->
-                            Color(0xFF7C4DFF)
+                        "PERDIDA" -> Color(0xFF7C4DFF)
+                        "ENCONTRADA" -> Color(0xFF4CAF50)
+                        "ADOPCION" -> Color(0xFF2196F3)
+                        else -> Color(0xFF7C4DFF)
                     },
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
-
                 Text(
                     text = location,
                     color = Color.Gray,
@@ -1628,24 +1684,15 @@ fun AdItemCard(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-
-                IconButton(
-                    onClick = onEdit,
-                    modifier = Modifier.size(28.dp)
-                ) {
+                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
                     Icon(
                         imageVector = Icons.Filled.Edit,
                         contentDescription = "Editar anuncio",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
-
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(28.dp)
-                ) {
+                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
                     Icon(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = "Eliminar anuncio",
@@ -1656,6 +1703,7 @@ fun AdItemCard(
         }
     }
 }
+
     @Composable
     fun ProfileOptionsCard(onNavigate: (String) -> Unit) {
         Card(

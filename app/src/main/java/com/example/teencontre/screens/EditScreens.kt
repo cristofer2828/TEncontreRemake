@@ -1,5 +1,7 @@
 package com.example.teencontre.screens
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,13 +22,13 @@ import com.example.teencontre.data.local.DatabaseHelper
 import com.example.teencontre.data.model.MascotasAdopcionModel
 import com.example.teencontre.data.model.MascotasEncontradasModel
 import com.example.teencontre.data.model.MascotasPerdidasModel
-import com.example.teencontre.sharedprefs.PreferenceManager
-import android.util.Log
 import com.example.teencontre.data.remote.RetrofitClient
-
+import com.example.teencontre.sharedprefs.PreferenceManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
 // ============================================================================
 // 1. PANTALLA: EDITAR MASCOTA PERDIDA
 // ============================================================================
@@ -35,8 +37,8 @@ import kotlinx.coroutines.launch
 fun EditPerdidoScreen(idMascota: Int, onBack: () -> Unit) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
+    val coroutineScope = rememberCoroutineScope()
 
-    // Estados para los campos específicos de addPerdido
     var nombreM by remember { mutableStateOf("") }
     var especie by remember { mutableStateOf("") }
     var genero by remember { mutableStateOf("") }
@@ -47,26 +49,30 @@ fun EditPerdidoScreen(idMascota: Int, onBack: () -> Unit) {
     var contacto by remember { mutableStateOf("") }
     var telefono by remember { mutableStateOf("") }
     var correo by remember { mutableStateOf("") }
-    var fotoBytes by remember { mutableStateOf<ByteArray?>(null) } // Mantiene la foto original
+    var fotoBytes by remember { mutableStateOf<ByteArray?>(null) }
 
-    // Cargar los datos actuales de la mascota al iniciar la pantalla
     LaunchedEffect(idMascota) {
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_PERDIDOS} WHERE ${DatabaseHelper.PERDIDO_ID} = ?", arrayOf(idMascota.toString()))
-        if (cursor.moveToFirst()) {
-            nombreM = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_NOMBRE))
-            especie = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_ESPECIE))
-            genero = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_GENERO))
-            raza = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_RAZA))
-            fecha = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_FECHA))
-            lugar = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_LUGAR))
-            descripcion = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_DESCRIPCION))
-            contacto = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_CONTACTO))
-            telefono = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_TELEFONO))
-            correo = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_CORREO))
-            fotoBytes = cursor.getBlob(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_FOTO))
+        withContext(Dispatchers.IO) {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT * FROM ${DatabaseHelper.TABLE_PERDIDOS} WHERE ${DatabaseHelper.PERDIDO_ID} = ?",
+                arrayOf(idMascota.toString())
+            )
+            if (cursor.moveToFirst()) {
+                nombreM = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_NOMBRE))
+                especie = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_ESPECIE))
+                genero = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_GENERO))
+                raza = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_RAZA))
+                fecha = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_FECHA))
+                lugar = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_LUGAR))
+                descripcion = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_DESCRIPCION))
+                contacto = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_CONTACTO))
+                telefono = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_TELEFONO))
+                correo = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_CORREO))
+                fotoBytes = cursor.getBlob(cursor.getColumnIndexOrThrow(DatabaseHelper.PERDIDO_FOTO))
+            }
+            cursor.close()
         }
-        cursor.close()
     }
 
     Scaffold(
@@ -88,133 +94,67 @@ fun EditPerdidoScreen(idMascota: Int, onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item { OutlinedTextField(value = nombreM, onValueChange = { nombreM = it }, label = { Text("Nombre de la mascota") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
+            item { OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
+            item { OutlinedTextField(value = raza, onValueChange = { raza = it }, label = { Text("Raza") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = fecha, onValueChange = { fecha = it }, label = { Text("Fecha y hora del extravío") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = lugar, onValueChange = { lugar = it }, label = { Text("Lugar / Zona") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
+            item { OutlinedTextField(value = contacto, onValueChange = { contacto = it }, label = { Text("Persona de Contacto") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = telefono, onValueChange = { telefono = it }, label = { Text("Teléfono") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = correo, onValueChange = { correo = it }, label = { Text("Correo Electrónico") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Descripción larga / Señas") }, modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(12.dp)) }
             item {
-                OutlinedTextField(value = nombreM, onValueChange = { nombreM = it }, label = { Text("Nombre de la mascota") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
-            }
-            item {
-                OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
-            }
-            item {
-                OutlinedTextField(value = raza, onValueChange = { raza = it }, label = { Text("Raza") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = fecha, onValueChange = { fecha = it }, label = { Text("Fecha y hora del extravío") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = lugar, onValueChange = { lugar = it }, label = { Text("Lugar / Zona") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
-            }
-            item {
-                OutlinedTextField(value = contacto, onValueChange = { contacto = it }, label = { Text("Persona de Contacto") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = telefono, onValueChange = { telefono = it }, label = { Text("Teléfono") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = correo, onValueChange = { correo = it }, label = { Text("Correo Electrónico") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Descripción larga / Señas") }, modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-
                 Spacer(modifier = Modifier.height(8.dp))
-
                 Button(
-
                     onClick = {
-
                         val prefs = PreferenceManager(context)
                         val usuario = prefs.getLoggedUser()
 
                         val updatedMascota = MascotasPerdidasModel(
-
                             id = idMascota,
-
                             idUsuario = usuario?.id ?: 0,
-
                             nombreM = nombreM,
                             especie = especie,
                             genero = genero,
                             raza = raza,
-
-                            foto = fotoBytes,
-
+                            foto = fotoBytes as Any?, // Adaptado de forma segura a Any?
                             fecha = fecha,
                             lugar = lugar,
                             descripcion = descripcion,
-
                             contacto = contacto,
                             telefono = telefono,
                             correo = correo
                         )
 
-                        // SQLite
-                        dbHelper.updatePerdido(updatedMascota)
-
-                        // Azure
-                        CoroutineScope(Dispatchers.IO).launch {
-
+                        coroutineScope.launch(Dispatchers.IO) {
+                            // SQLite Local
+                            dbHelper.updatePerdido(updatedMascota)
                             try {
-
-                                val response =
-                                    RetrofitClient.instance.editarPerdido(
-                                        updatedMascota
-                                    )
-
-                                if (response.isSuccessful) {
-
-                                    Log.d(
-                                        "AZURE",
-                                        "Publicación actualizada correctamente"
-                                    )
-
-                                } else {
-
-                                    Log.e(
-                                        "AZURE",
-                                        "Error HTTP: ${response.code()}"
-                                    )
-
-                                    Log.e(
-                                        "AZURE",
-                                        response.errorBody()?.string()
-                                            ?: "Sin detalle"
-                                    )
+                                val response = RetrofitClient.instance.editarPerdido(updatedMascota)
+                                withContext(Dispatchers.Main) {
+                                    if (response.isSuccessful) {
+                                        Toast.makeText(context, "Cambios guardados en Azure correctamente", Toast.LENGTH_SHORT).show()
+                                        onBack()
+                                    } else {
+                                        Log.e("AZURE", "Error HTTP: ${response.code()}")
+                                        Toast.makeText(context, "Error en el servidor de Azure", Toast.LENGTH_LONG).show()
+                                    }
                                 }
-
                             } catch (e: Exception) {
-
-                                Log.e(
-                                    "AZURE",
-                                    "Error: ${e.message}"
-                                )
+                                Log.e("AZURE", "Error: ${e.message}")
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Error de conexión, guardado solo local", Toast.LENGTH_LONG).show()
+                                    onBack()
+                                }
                             }
                         }
-
-                        onBack()
                     },
-
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF7C4DFF)
-                    ),
-
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C4DFF)),
                     shape = RoundedCornerShape(12.dp)
-
                 ) {
-
-                    Text(
-                        "Guardar Cambios",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("Guardar Cambios", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -229,8 +169,8 @@ fun EditPerdidoScreen(idMascota: Int, onBack: () -> Unit) {
 fun EditEncontradaScreen(idMascota: Int, onBack: () -> Unit) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
+    val coroutineScope = rememberCoroutineScope()
 
-    // Estados para los campos específicos de addEncontrada
     var especie by remember { mutableStateOf("") }
     var genero by remember { mutableStateOf("") }
     var fecha by remember { mutableStateOf("") }
@@ -242,20 +182,25 @@ fun EditEncontradaScreen(idMascota: Int, onBack: () -> Unit) {
     var fotoBytes by remember { mutableStateOf<ByteArray?>(null) }
 
     LaunchedEffect(idMascota) {
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_ENCONTRADOS} WHERE ${DatabaseHelper.ENCONTRADO_ID} = ?", arrayOf(idMascota.toString()))
-        if (cursor.moveToFirst()) {
-            especie = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_ESPECIE))
-            genero = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_GENERO))
-            fecha = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_FECHA))
-            lugar = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_LUGAR))
-            descripcion = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_DESCRIPCION))
-            contacto = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_CONTACTO))
-            telefono = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_TELEFONO))
-            correo = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_CORREO))
-            fotoBytes = cursor.getBlob(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_FOTO))
+        withContext(Dispatchers.IO) {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT * FROM ${DatabaseHelper.TABLE_ENCONTRADOS} WHERE ${DatabaseHelper.ENCONTRADO_ID} = ?",
+                arrayOf(idMascota.toString())
+            )
+            if (cursor.moveToFirst()) {
+                especie = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_ESPECIE))
+                genero = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_GENERO))
+                fecha = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_FECHA))
+                lugar = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_LUGAR))
+                descripcion = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_DESCRIPCION))
+                contacto = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_CONTACTO))
+                telefono = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_TELEFONO))
+                correo = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_CORREO))
+                fotoBytes = cursor.getBlob(cursor.getColumnIndexOrThrow(DatabaseHelper.ENCONTRADO_FOTO))
+            }
+            cursor.close()
         }
-        cursor.close()
     }
 
     Scaffold(
@@ -277,37 +222,57 @@ fun EditEncontradaScreen(idMascota: Int, onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie (Perro, gato, etc.)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
-            }
-            item {
-                OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
-            }
-            item {
-                OutlinedTextField(value = fecha, onValueChange = { fecha = it }, label = { Text("Fecha y hora del hallazgo") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = lugar, onValueChange = { lugar = it }, label = { Text("Lugar donde se encontró") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
-            }
-            item {
-                OutlinedTextField(value = contacto, onValueChange = { contacto = it }, label = { Text("Persona de Contacto") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = telefono, onValueChange = { telefono = it }, label = { Text("Teléfono") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = correo, onValueChange = { correo = it }, label = { Text("Correo Electrónico") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Descripción o situación del animal") }, modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(12.dp))
-            }
+            item { OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie (Perro, gato, etc.)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
+            item { OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
+            item { OutlinedTextField(value = fecha, onValueChange = { fecha = it }, label = { Text("Fecha y hora del hallazgo") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = lugar, onValueChange = { lugar = it }, label = { Text("Lugar donde se encontró") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
+            item { OutlinedTextField(value = contacto, onValueChange = { contacto = it }, label = { Text("Persona de Contacto") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = telefono, onValueChange = { telefono = it }, label = { Text("Teléfono") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = correo, onValueChange = { correo = it }, label = { Text("Correo Electrónico") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Descripción o situación del animal") }, modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(12.dp)) }
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = {
-                        val updatedMascota = MascotasEncontradasModel(id = idMascota, especie = especie, genero = genero, foto = fotoBytes, fecha = fecha, lugar = lugar, descripcion = descripcion, contacto = contacto, telefono = telefono, correo = correo)
-                        dbHelper.updateEncontrada(updatedMascota)
-                        onBack()
+                        val prefs = PreferenceManager(context)
+                        val usuario = prefs.getLoggedUser()
+
+                        val updatedMascota = MascotasEncontradasModel(
+                            id = idMascota,
+                            idUsuario = usuario?.id ?: 0, // Corregido idUsuario obtenido de preferencias
+                            especie = especie,
+                            genero = genero,
+                            foto = fotoBytes as Any?, // Sincronizado tipo Any?
+                            fecha = fecha,
+                            lugar = lugar,
+                            descripcion = descripcion,
+                            contacto = contacto,
+                            telefono = telefono,
+                            correo = correo
+                        )
+
+                        coroutineScope.launch(Dispatchers.IO) {
+                            // SQLite Local
+                            dbHelper.updateEncontrada(updatedMascota)
+                            try {
+                                // CORREGIDO: Se añadió la sincronización con Azure para Encontrados
+                                val response = RetrofitClient.instance.editarEncontrado(updatedMascota)
+                                withContext(Dispatchers.Main) {
+                                    if (response.isSuccessful) {
+                                        Toast.makeText(context, "Publicación actualizada en Azure", Toast.LENGTH_SHORT).show()
+                                        onBack()
+                                    } else {
+                                        Toast.makeText(context, "Error en el servidor de Azure", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.e("AZURE", "Error: ${e.message}")
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Error de red, guardado localmente", Toast.LENGTH_LONG).show()
+                                    onBack()
+                                }
+                            }
+                        }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C4DFF)),
@@ -328,8 +293,8 @@ fun EditEncontradaScreen(idMascota: Int, onBack: () -> Unit) {
 fun EditAdopcionScreen(idMascota: Int, onBack: () -> Unit) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
+    val coroutineScope = rememberCoroutineScope()
 
-    // Estados para los campos específicos de addAdopcion
     var especie by remember { mutableStateOf("") }
     var genero by remember { mutableStateOf("") }
     var raza by remember { mutableStateOf("") }
@@ -345,24 +310,29 @@ fun EditAdopcionScreen(idMascota: Int, onBack: () -> Unit) {
     var fotoBytes by remember { mutableStateOf<ByteArray?>(null) }
 
     LaunchedEffect(idMascota) {
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_ADOPCION} WHERE ${DatabaseHelper.ADOPCION_ID} = ?", arrayOf(idMascota.toString()))
-        if (cursor.moveToFirst()) {
-            especie = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ESPECIE))
-            genero = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_GENERO))
-            raza = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_RAZA))
-            vacunado = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_VACUNADO)) == 1
-            esterilizado = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ESTERILIZADO)) == 1
-            desparasitado = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_DESPARASITADO)) == 1
-            tamano = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TAMANO))
-            temperamento = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TEMPERAMENTO))
-            descripcion = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_DESCRIPCION))
-            nombreOrganizacion = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ORGANIZACION))
-            telefono = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TELEFONO))
-            correo = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_CORREO))
-            fotoBytes = cursor.getBlob(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_FOTO))
+        withContext(Dispatchers.IO) {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT * FROM ${DatabaseHelper.TABLE_ADOPCION} WHERE ${DatabaseHelper.ADOPCION_ID} = ?",
+                arrayOf(idMascota.toString())
+            )
+            if (cursor.moveToFirst()) {
+                especie = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ESPECIE))
+                genero = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_GENERO))
+                raza = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_RAZA))
+                vacunado = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_VACUNADO)) == 1
+                esterilizado = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ESTERILIZADO)) == 1
+                desparasitado = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_DESPARASITADO)) == 1
+                tamano = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TAMANO))
+                temperamento = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TEMPERAMENTO))
+                descripcion = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_DESCRIPCION))
+                nombreOrganizacion = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ORGANIZACION))
+                telefono = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TELEFONO))
+                correo = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_CORREO))
+                fotoBytes = cursor.getBlob(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_FOTO))
+            }
+            cursor.close()
         }
-        cursor.close()
     }
 
     Scaffold(
@@ -384,32 +354,15 @@ fun EditAdopcionScreen(idMascota: Int, onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
-            }
-            item {
-                OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
-            }
-            item {
-                OutlinedTextField(value = raza, onValueChange = { raza = it }, label = { Text("Raza") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = tamano, onValueChange = { tamano = it }, label = { Text("Tamaño (Pequeño, Mediano, Grande)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false)
-            }
-            item {
-                OutlinedTextField(value = temperamento, onValueChange = { temperamento = it }, label = { Text("Temperamento (Ej: Juguetón)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = nombreOrganizacion, onValueChange = { nombreOrganizacion = it }, label = { Text("Nombre de la Organización / Dueño") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = telefono, onValueChange = { telefono = it }, label = { Text("Teléfono") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
-            item {
-                OutlinedTextField(value = correo, onValueChange = { correo = it }, label = { Text("Correo Electrónico") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-            }
+            item { OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
+            item { OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
+            item { OutlinedTextField(value = raza, onValueChange = { raza = it }, label = { Text("Raza") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = tamano, onValueChange = { tamano = it }, label = { Text("Tamaño (Pequeño, Mediano, Grande)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
+            item { OutlinedTextField(value = temperamento, onValueChange = { temperamento = it }, label = { Text("Temperamento (Ej: Juguetón)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = nombreOrganizacion, onValueChange = { nombreOrganizacion = it }, label = { Text("Nombre de la Organización / Dueño") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = telefono, onValueChange = { telefono = it }, label = { Text("Teléfono") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
+            item { OutlinedTextField(value = correo, onValueChange = { correo = it }, label = { Text("Correo Electrónico") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
 
-            // Selectores booleanos obligatorios en Material 3 (Checkboxes con fila integrada)
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Checkbox(checked = vacunado, onCheckedChange = { vacunado = it })
@@ -429,16 +382,54 @@ fun EditAdopcionScreen(idMascota: Int, onBack: () -> Unit) {
                 }
             }
 
-            item {
-                OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Requisitos y descripción larga") }, modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(12.dp))
-            }
+            item { OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Requisitos y descripción larga") }, modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(12.dp)) }
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = {
-                        val updatedMascota = MascotasAdopcionModel(id = idMascota, especie = especie, genero = genero, raza = raza, vacunado = vacunado, esterilizado = esterilizado, desparasitado = desparasitado, tamano = tamano, temperamento = temperamento, foto = fotoBytes, descripcion = descripcion, nombreOrganizacion = nombreOrganizacion, telefono = telefono, correo = correo)
-                        dbHelper.updateAdopcion(updatedMascota)
-                        onBack()
+                        val prefs = PreferenceManager(context)
+                        val usuario = prefs.getLoggedUser()
+
+                        val updatedMascota = MascotasAdopcionModel(
+                            id = idMascota,
+                            idUsuario = usuario?.id ?: 0, // Corregido idUsuario obtenido de preferencias
+                            especie = especie,
+                            genero = genero,
+                            raza = raza,
+                            vacunado = vacunado,
+                            esterilizado = esterilizado,
+                            desparasitado = desparasitado,
+                            tamano = tamano,
+                            temperamento = temperamento,
+                            foto = fotoBytes as Any?, // Sincronizado tipo Any?
+                            descripcion = descripcion,
+                            nombreOrganizacion = nombreOrganizacion,
+                            telefono = telefono,
+                            correo = correo
+                        )
+
+                        coroutineScope.launch(Dispatchers.IO) {
+                            // SQLite Local
+                            dbHelper.updateAdopcion(updatedMascota)
+                            try {
+                                // CORREGIDO: Se añadió la sincronización con Azure para Adopciones
+                                val response = RetrofitClient.instance.editarAdopcion(updatedMascota)
+                                withContext(Dispatchers.Main) {
+                                    if (response.isSuccessful) {
+                                        Toast.makeText(context, "Publicación actualizada en Azure", Toast.LENGTH_SHORT).show()
+                                        onBack()
+                                    } else {
+                                        Toast.makeText(context, "Error en el servidor de Azure", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.e("AZURE", "Error: ${e.message}")
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Error de red, guardado localmente", Toast.LENGTH_LONG).show()
+                                    onBack()
+                                }
+                            }
+                        }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C4DFF)),

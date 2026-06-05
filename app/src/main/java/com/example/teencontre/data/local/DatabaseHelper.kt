@@ -120,7 +120,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             put(PERDIDO_ESPECIE, p.especie)
             put(PERDIDO_GENERO, p.genero)
             put(PERDIDO_RAZA, p.raza)
-            put(PERDIDO_FOTO, p.foto)
+            // CORREGIDO: Casteo seguro a ByteArray? para SQLite
+            put(PERDIDO_FOTO, p.foto as? ByteArray)
             put(PERDIDO_FECHA, p.fecha)
             put(PERDIDO_LUGAR, p.lugar)
             put(PERDIDO_DESCRIPCION, p.descripcion)
@@ -167,7 +168,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             put(PERDIDO_ESPECIE, p.especie)
             put(PERDIDO_GENERO, p.genero)
             put(PERDIDO_RAZA, p.raza)
-            if (p.foto != null) put(PERDIDO_FOTO, p.foto)
+            // CORREGIDO: Casteo seguro a ByteArray? para SQLite
+            if (p.foto != null) put(PERDIDO_FOTO, p.foto as? ByteArray)
             put(PERDIDO_FECHA, p.fecha)
             put(PERDIDO_LUGAR, p.lugar)
             put(PERDIDO_DESCRIPCION, p.descripcion)
@@ -193,7 +195,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             put(ENCONTRADO_USER_ID, e.idUsuario)
             put(ENCONTRADO_ESPECIE, e.especie)
             put(ENCONTRADO_GENERO, e.genero)
-            put(ENCONTRADO_FOTO, e.foto)
+            // CORREGIDO: Casteo seguro a ByteArray? para SQLite
+            put(ENCONTRADO_FOTO, e.foto as? ByteArray)
             put(ENCONTRADO_FECHA, e.fecha)
             put(ENCONTRADO_LUGAR, e.lugar)
             put(ENCONTRADO_DESCRIPCION, e.descripcion)
@@ -236,7 +239,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             put(ENCONTRADO_USER_ID, e.idUsuario)
             put(ENCONTRADO_ESPECIE, e.especie)
             put(ENCONTRADO_GENERO, e.genero)
-            if (e.foto != null) put(ENCONTRADO_FOTO, e.foto)
+            // CORREGIDO: Casteo seguro a ByteArray? para SQLite
+            if (e.foto != null) put(ENCONTRADO_FOTO, e.foto as? ByteArray)
             put(ENCONTRADO_FECHA, e.fecha)
             put(ENCONTRADO_LUGAR, e.lugar)
             put(ENCONTRADO_DESCRIPCION, e.descripcion)
@@ -268,7 +272,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             put(ADOPCION_DESPARASITADO, if (a.desparasitado) 1 else 0)
             put(ADOPCION_TAMANO, a.tamano)
             put(ADOPCION_TEMPERAMENTO, a.temperamento)
-            put(ADOPCION_FOTO, a.foto)
+            // CORREGIDO: Casteo seguro a ByteArray? para SQLite
+            put(ADOPCION_FOTO, a.foto as? ByteArray)
             put(ADOPCION_DESCRIPCION, a.descripcion)
             put(ADOPCION_ORGANIZACION, a.nombreOrganizacion)
             put(ADOPCION_TELEFONO, a.telefono)
@@ -319,7 +324,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             put(ADOPCION_DESPARASITADO, if (a.desparasitado) 1 else 0)
             put(ADOPCION_TAMANO, a.tamano)
             put(ADOPCION_TEMPERAMENTO, a.temperamento)
-            if (a.foto != null) put(ADOPCION_FOTO, a.foto)
+            // CORREGIDO: Casteo seguro a ByteArray? para SQLite
+            if (a.foto != null) put(ADOPCION_FOTO, a.foto as? ByteArray)
             put(ADOPCION_DESCRIPCION, a.descripcion)
             put(ADOPCION_ORGANIZACION, a.nombreOrganizacion)
             put(ADOPCION_TELEFONO, a.telefono)
