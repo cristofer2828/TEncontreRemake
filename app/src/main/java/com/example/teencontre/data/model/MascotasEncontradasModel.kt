@@ -1,11 +1,10 @@
 package com.example.teencontre.data.model
-data class MascotasPerdidasModel(
+
+data class MascotasEncontradasModel(
     val id: Int = 0,
-    val idUsuario: Int,
-    val nombreM: String,
+    val idUsuario: Int = 0,
     val especie: String,
     val genero: String,
-    val raza: String,
     val foto: ByteArray?,
     val fecha: String,
     val lugar: String,
@@ -13,12 +12,11 @@ data class MascotasPerdidasModel(
     val contacto: String,
     val telefono: String,
     val correo: String
-){
-
+) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
-        other as MascotasPerdidasModel
+        other as MascotasEncontradasModel
         if (id != other.id) return false
         return true
     }
@@ -27,10 +25,3 @@ data class MascotasPerdidasModel(
         return id
     }
 }
-
-data class ApiResponse(
-    val success: Boolean,
-    val message: String? = null,
-    val error: String? = null
-)
-

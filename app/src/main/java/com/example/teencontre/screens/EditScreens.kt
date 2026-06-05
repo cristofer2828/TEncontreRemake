@@ -20,7 +20,13 @@ import com.example.teencontre.data.local.DatabaseHelper
 import com.example.teencontre.data.model.MascotasAdopcionModel
 import com.example.teencontre.data.model.MascotasEncontradasModel
 import com.example.teencontre.data.model.MascotasPerdidasModel
+import com.example.teencontre.sharedprefs.PreferenceManager
+import android.util.Log
+import com.example.teencontre.data.remote.RetrofitClient
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 // ============================================================================
 // 1. PANTALLA: EDITAR MASCOTA PERDIDA
 // ============================================================================
@@ -113,18 +119,102 @@ fun EditPerdidoScreen(idMascota: Int, onBack: () -> Unit) {
                 OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Descripción larga / Señas") }, modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(12.dp))
             }
             item {
+
                 Spacer(modifier = Modifier.height(8.dp))
+
                 Button(
+
                     onClick = {
-                        val updatedMascota = MascotasPerdidasModel(id = idMascota, nombreM = nombreM, especie = especie, genero = genero, raza = raza, foto = fotoBytes, fecha = fecha, lugar = lugar, descripcion = descripcion, contacto = contacto, telefono = telefono, correo = correo)
+
+                        val prefs = PreferenceManager(context)
+                        val usuario = prefs.getLoggedUser()
+
+                        val updatedMascota = MascotasPerdidasModel(
+
+                            id = idMascota,
+
+                            idUsuario = usuario?.id ?: 0,
+
+                            nombreM = nombreM,
+                            especie = especie,
+                            genero = genero,
+                            raza = raza,
+
+                            foto = fotoBytes,
+
+                            fecha = fecha,
+                            lugar = lugar,
+                            descripcion = descripcion,
+
+                            contacto = contacto,
+                            telefono = telefono,
+                            correo = correo
+                        )
+
+                        // SQLite
                         dbHelper.updatePerdido(updatedMascota)
+
+                        // Azure
+                        CoroutineScope(Dispatchers.IO).launch {
+
+                            try {
+
+                                val response =
+                                    RetrofitClient.instance.editarPerdido(
+                                        updatedMascota
+                                    )
+
+                                if (response.isSuccessful) {
+
+                                    Log.d(
+                                        "AZURE",
+                                        "Publicación actualizada correctamente"
+                                    )
+
+                                } else {
+
+                                    Log.e(
+                                        "AZURE",
+                                        "Error HTTP: ${response.code()}"
+                                    )
+
+                                    Log.e(
+                                        "AZURE",
+                                        response.errorBody()?.string()
+                                            ?: "Sin detalle"
+                                    )
+                                }
+
+                            } catch (e: Exception) {
+
+                                Log.e(
+                                    "AZURE",
+                                    "Error: ${e.message}"
+                                )
+                            }
+                        }
+
                         onBack()
                     },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C4DFF)),
+
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF7C4DFF)
+                    ),
+
                     shape = RoundedCornerShape(12.dp)
+
                 ) {
-                    Text("Guardar Cambios", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+
+                    Text(
+                        "Guardar Cambios",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

@@ -1,56 +1,74 @@
 package com.example.teencontre.screens
 
-import android.content.Context
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.android.gms.maps.model.LatLng
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import android.content.Context
+import android.net.Uri
+import android.util.Log
+import android.widget.Toast
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.ui.draw.clip
 import coil.compose.rememberAsyncImagePainter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 // IMPORTACIONES DE TU PAQUETE DE DATOS
 import com.example.teencontre.data.local.DatabaseHelper
-import com.example.teencontre.data.model.MascotasEncontradasModel
+import com.example.teencontre.data.remote.RetrofitClient
+import com.example.teencontre.sharedprefs.PreferenceManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 
-// COLOR VERDE SÉPTIMO PASO (CONSERVA TU IDENTIDAD VISUAL)
+
 private val FigmaGreen = Color(0xFF4CAF50)
 
-// =================================================================
-// COMPONENTE PRINCIPAL: WIZARD DE CREACIÓN (MASCOTA ENCONTRADA)
-// =================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
     val context = LocalContext.current
+    val prefs = remember {
+        PreferenceManager(context)
+    }
+
+    val usuario = prefs.getLoggedUser()
+
     val sharedPreferences = remember { context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE) }
     val dbHelper = remember { DatabaseHelper(context) }
+    val coroutineScope = rememberCoroutineScope()
 
     var step by remember { mutableIntStateOf(1) }
     val totalSteps = 5
@@ -59,12 +77,14 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
     var showPhotoSheet by remember { mutableStateOf(false) }
     var showDescSheet by remember { mutableStateOf(false) }
     var showLocationConfirmSheet by remember { mutableStateOf(false) }
+    var showMapPickerEncontrado by remember { mutableStateOf(false) }
 
     // --- ESTADOS DE DATOS DE LA MASCOTA ---
     var razaMascota by remember { mutableStateOf("") }
     var petType by remember { mutableStateOf("Perro") }
     var gender by remember { mutableStateOf("Hembra") }
     var location by remember { mutableStateOf("") }
+    var ubicacionLatLng by remember { mutableStateOf<LatLng?>(null) }
     var description by remember { mutableStateOf("") }
     var selectedDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var selectedPhotos by remember { mutableStateOf<List<Uri>>(emptyList()) }
@@ -74,7 +94,28 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
     var contactEmail by remember { mutableStateOf(sharedPreferences.getString("userEmail", "") ?: "") }
     var acceptedTerms by remember { mutableStateOf(false) }
 
-    val sdf = SimpleDateFormat("dd/MM/yyyy", LocalLocale.current.platformLocale)
+    val sdf = SimpleDateFormat("yyyy-MM-dd", LocalLocale.current.platformLocale)
+    val apiService = RetrofitClient.instance
+
+    // --- INTERCEPCIÓN DE PANTALLA COMPLETA PARA SELECCIONAR MAPA ---
+    if (showMapPickerEncontrado) {
+        SeleccionarUbicacionScreen(
+            onConfirmar = { latLng ->
+                ubicacionLatLng = latLng
+                location = "Obteniendo ubicación..."
+
+                coroutineScope.launch {
+                    val direccion = obtenerDireccionDesdeCoordenadas(context, latLng)
+                    location = direccion
+                    showMapPickerEncontrado = false
+                }
+            },
+            onBack = {
+                showMapPickerEncontrado = false
+            }
+        )
+        return
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
@@ -89,12 +130,11 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
         ) {
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- BARRA SUPERIOR (CÍRCULO GRANDE Y CENTRADO + FLECHA FLOTANTE ADAPTABLE) ---
+            // --- BARRA SUPERIOR INDICADORA ---
             Box(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                // Flecha Atrás: Posicionada al inicio del Box de forma flotante
                 IconButton(
                     onClick = { if (step > 1 && step <= totalSteps) step-- else onBackToSelector() },
                     modifier = Modifier.align(Alignment.CenterStart)
@@ -107,14 +147,13 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
                     )
                 }
 
-                // Círculo indicador de progreso
                 if (step <= totalSteps) {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.size(130.dp)
                     ) {
                         CircularProgressIndicator(
-                            progress = 1f,
+                            progress = { 1f },
                             modifier = Modifier.fillMaxSize(),
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                             strokeWidth = 6.dp
@@ -133,14 +172,13 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
                                 useCenter = false,
                                 style = androidx.compose.ui.graphics.drawscope.Stroke(
                                     width = 6.dp.toPx(),
-                                    cap = androidx.compose.ui.graphics.StrokeCap.Round // Extremos redondeados estilizados
+                                    cap = androidx.compose.ui.graphics.StrokeCap.Round
                                 )
                             )
                         }
                     }
                 }
             }
-
 
             Spacer(modifier = Modifier.height(30.dp))
 
@@ -163,7 +201,20 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
                         onRaza = { razaMascota = it }, onType = { petType = it }, onGen = { gender = it }
                     )
                     2 -> PasoFotoEncontrada(selectedPhotos) { selectedPhotos = it }
-                    3 -> PasoUbicacionEncontrada(location, selectedDate, { location = it }, { selectedDate = it })
+                    3 -> PasoUbicacionEncontrada(
+                        lugar = location,
+                        fecha = selectedDate,
+                        selectedLatLng = ubicacionLatLng,
+                        mostrarModal = showLocationConfirmSheet,
+                        onLugar = { location = it },
+                        onFecha = { selectedDate = it },
+                        onOpenMap = { showMapPickerEncontrado = true },
+                        onDireccionConfirmada = {
+                            showLocationConfirmSheet = false
+                            step++
+                        },
+                        onDismissModal = { showLocationConfirmSheet = false }
+                    )
                     4 -> PasoDescripcionEncontrada(description) { description = it }
                     5 -> PasoContactoEncontrada(
                         contactName, contactPhone, contactEmail, acceptedTerms,
@@ -185,36 +236,68 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
                         } else if (step < totalSteps) {
                             step++
                         } else {
-                            var fotoBytes: ByteArray? = null
-                            if (selectedPhotos.isNotEmpty()) {
+                            coroutineScope.launch(Dispatchers.IO) {
                                 try {
-                                    val inputStream = context.contentResolver.openInputStream(selectedPhotos[0])
-                                    fotoBytes = inputStream?.readBytes()
-                                    inputStream?.close()
+                                    val textType = "text/plain".toMediaTypeOrNull()
+                                    val imageType = "image/jpeg".toMediaTypeOrNull()
+
+                                    // Extraemos el ID exacto del usuario (mismo método que en Perdidos)
+                                    val idUsuarioReal = (usuario?.id ?: 0).toString()
+
+                                    // 1. Preparación de RequestBody estructurados
+                                    val idUsuarioPart = RequestBody.create(textType, idUsuarioReal)
+                                    val especiePart = RequestBody.create(textType, petType)
+                                    val generoPart = RequestBody.create(textType, gender)
+                                    val fechaPart = RequestBody.create(textType, sdf.format(Date(selectedDate)))
+                                    val lugarPart = RequestBody.create(textType, location)
+
+                                    // Unificar rasgos descriptivos
+                                    val detallesIntroducidos = StringBuilder()
+                                    if (razaMascota.isNotBlank()) detallesIntroducidos.append("Raza/Rasgos: $razaMascota. ")
+                                    detallesIntroducidos.append(description)
+                                    val descPart = RequestBody.create(textType, detallesIntroducidos.toString().trim())
+
+                                    val contactoPart = RequestBody.create(textType, contactName)
+                                    val telefonoPart = RequestBody.create(textType, contactPhone)
+                                    val correoPart = RequestBody.create(textType, contactEmail)
+
+                                    // 2. Procesar imagen binaria real para Multipart
+                                    var fotoPart: MultipartBody.Part? = null
+                                    if (selectedPhotos.isNotEmpty()) {
+                                        try {
+                                            context.contentResolver.openInputStream(selectedPhotos[0])?.use { inputStream ->
+                                                val bytes = inputStream.readBytes()
+                                                val requestFile = RequestBody.create(imageType, bytes)
+                                                fotoPart = MultipartBody.Part.createFormData("foto", "mascota_encontrada.jpg", requestFile)
+                                            }
+                                        } catch (e: Exception) {
+                                            Log.e("WIZARD_UPLOAD", "Error leyendo bytes de imagen", e)
+                                        }
+                                    }
+
+                                    // 3. Ejecutar llamada asíncrona Multipart
+                                    val response = apiService.registrarMascotaEncontrada(
+                                        idUsuarioPart, especiePart, generoPart, fotoPart,
+                                        fechaPart, lugarPart, descPart, contactoPart, telefonoPart, correoPart
+                                    )
+
+                                    withContext(Dispatchers.Main) {
+                                        if (response.isSuccessful && response.body()?.success == true) {
+                                            Toast.makeText(context, "Publicación creada con éxito en Azure", Toast.LENGTH_SHORT).show()
+                                            step = 6
+                                        } else {
+                                            val errorMsg = response.body()?.error ?: response.body()?.message ?: "Código HTTP: ${response.code()}"
+                                            Toast.makeText(context, "Error del servidor: $errorMsg", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+
                                 } catch (e: Exception) {
-                                    e.printStackTrace()
+                                    Log.e("WIZARD_UPLOAD_ERROR", "Error de red al conectar con Azure", e)
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Error de red: No se pudo subir a Azure", Toast.LENGTH_LONG).show()
+                                    }
                                 }
                             }
-
-                            val detallesIntroducidos = StringBuilder()
-                            if (razaMascota.isNotBlank()) detallesIntroducidos.append("Raza/Rasgos: $razaMascota. ")
-                            detallesIntroducidos.append(description)
-
-                            val mascotaHallada = MascotasEncontradasModel(
-                                id = 0,
-                                especie = petType,
-                                genero = gender,
-                                foto = fotoBytes,
-                                fecha = sdf.format(Date(selectedDate)),
-                                lugar = location,
-                                descripcion = detallesIntroducidos.toString().trim(),
-                                contacto = contactName,
-                                telefono = contactPhone,
-                                correo = contactEmail
-                            )
-
-                            dbHelper.insertEncontrada(mascotaHallada)
-                            step = 6
                         }
                     },
                     onBack = { if (step > 1) step-- else onBackToSelector() },
@@ -228,34 +311,36 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
         }
     }
 
+    // --- BOTTOM SHEETS DE CONTROL ---
     if (showPhotoSheet) {
         OmitirFotoDialog(onDismiss = { showPhotoSheet = false }, onConfirm = { showPhotoSheet = false; step++ })
     }
     if (showDescSheet) {
         OmitirDescDialog(onDismiss = { showDescSheet = false }, onConfirm = { showDescSheet = false; step++ })
     }
-    if (showLocationConfirmSheet) {
-        ConfirmarUbicacionDialog(
-            onDismiss = { showLocationConfirmSheet = false },
-            onConfirm = {
-                showLocationConfirmSheet = false
-                step++
-            }
-        )
-    }
 }
 
-// =================================================================
-// SUBPANTALLAS DEL FLUJO "ENCONTRADA" (CON COLORES DEL TEMA)
-// =================================================================
 @Composable
 fun PasoMascotaEncontrada(
-    raza: String, type: String, gen: String,
-    onRaza: (String) -> Unit, onType: (String) -> Unit, onGen: (String) -> Unit
+    raza: String,
+    type: String,
+    gen: String,
+    onRaza: (String) -> Unit,
+    onType: (String) -> Unit,
+    onGen: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("¿Qué mascota encontraste?", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onBackground)
-        Text("Por favor, indique el tipo y sexo aproximado de la mascota", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        Text(
+            text = "¿Qué mascota encontraste?",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Text(
+            text = "Por favor, indique el tipo y sexo aproximado de la mascota",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp
+        )
 
         Spacer(Modifier.height(24.dp))
 
@@ -264,12 +349,26 @@ fun PasoMascotaEncontrada(
         SelectorDobleEncontrada("Género", "Hembra" to "Macho", gen, onGen)
         Spacer(Modifier.height(16.dp))
 
-        Text("Raza o rasgos parecidos", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground)
+        Text(
+            text = "Raza o rasgos parecidos",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
         OutlinedTextField(
-            value = raza, onValueChange = onRaza,
-            placeholder = { Text("Ej: Cruzado, Pitbull, Siamés...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp), singleLine = true,
+            value = raza,
+            onValueChange = onRaza,
+            placeholder = {
+                Text(
+                    text = "Ej: Cruzado, Pitbull, Siamés...",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            shape = RoundedCornerShape(8.dp),
+            singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = MaterialTheme.colorScheme.onBackground,
                 unfocusedTextColor = MaterialTheme.colorScheme.onBackground
@@ -279,21 +378,51 @@ fun PasoMascotaEncontrada(
 }
 
 @Composable
-fun SelectorDobleEncontrada(label: String, opciones: Pair<String, String>, seleccionado: String, onSelect: (String) -> Unit) {
+fun SelectorDobleEncontrada(
+    label: String,
+    opciones: Pair<String, String>,
+    seleccionado: String,
+    onSelect: (String) -> Unit
+) {
     Column {
-        Text(label, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground)
-        Row(Modifier.padding(top = 8.dp), Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = label,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Row(
+            modifier = Modifier.padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             listOf(opciones.first, opciones.second).forEach { op ->
                 val isSel = seleccionado == op
+                val shape = RoundedCornerShape(10.dp)
+
                 Box(
-                    Modifier
-                        .weight(1f).height(48.dp)
-                        .border(1.dp, if (isSel) FigmaGreen else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-                        .clickable { onSelect(op) }
-                        .background(if (isSel) FigmaGreen.copy(0.12f) else Color.Transparent, RoundedCornerShape(10.dp)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .border(
+                            width = 1.dp,
+                            color = if (isSel) FigmaGreen else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                            shape = shape
+                        )
+                        // Corregido el orden: Primero asignamos la forma física del contenedor
+                        .clip(shape)
+                        // El clickable ahora se adapta perfectamente al borde redondeado
+                        .clickable(
+                            role = androidx.compose.ui.semantics.Role.RadioButton
+                        ) { onSelect(op) }
+                        // Aplicamos el color de fondo después de registrar el click
+                        .background(if (isSel) FigmaGreen.copy(alpha = 0.12f) else Color.Transparent),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(op, color = if (isSel) FigmaGreen else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                    Text(
+                        text = op,
+                        color = if (isSel) FigmaGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
@@ -332,13 +461,14 @@ fun PasoFotoEncontrada(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) 
         )
         Spacer(modifier = Modifier.height(6.dp))
 
-        // --- AQUÍ ESTÁ EL CAMBIO PRINCIPAL (Caja de "Añadir una foto") ---
+        val boxShape = RoundedCornerShape(8.dp)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(8.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer, boxShape)
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), boxShape)
+                .clip(boxShape) // ← Corta el efecto de click para que no se salga de las esquinas
                 .clickable { galleryLauncher.launch("image/*") },
             contentAlignment = Alignment.Center
         ) {
@@ -357,7 +487,6 @@ fun PasoFotoEncontrada(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) 
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items(photos) { uri ->
-                    // --- AQUÍ ESTÁ EL SEGUNDO CAMBIO (Miniaturas de las fotos cargadas) ---
                     Box(
                         modifier = Modifier
                             .size(80.dp)
@@ -397,69 +526,260 @@ fun PasoFotoEncontrada(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PasoUbicacionEncontrada(loc: String, date: Long, onLoc: (String) -> Unit, onDate: (Long) -> Unit) {
-    var showPicker by remember { mutableStateOf(false) }
-    val state = rememberDatePickerState(initialSelectedDateMillis = date)
-    val sdf = SimpleDateFormat("dd/MM/yyyy", LocalLocale.current.platformLocale)
+fun PasoUbicacionEncontrada(
+    lugar: String,
+    fecha: Long,
+    selectedLatLng: LatLng?,
+    mostrarModal: Boolean,
+    onLugar: (String) -> Unit,
+    onFecha: (Long) -> Unit,
+    onOpenMap: () -> Unit,
+    onDireccionConfirmada: () -> Unit,
+    onDismissModal: () -> Unit
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
 
-    if (showPicker) {
-        DatePickerDialog(
-            onDismissRequest = { showPicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    state.selectedDateMillis?.let { onDate(it) }
-                    showPicker = false
-                }) { Text("OK", color = FigmaGreen) }
-            }
-        ) { DatePicker(state = state) }
+    val dateFormatter = remember {
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("¿Dónde lo encontraste?", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onBackground)
-        Text("Indica la fecha exacta y zona donde se le vio o rescató.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        Text(
+            text = "¿Dónde y cuándo lo encontraste?",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Indica la fecha exacta y la zona donde se le vio o rescató.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 14.sp,
+            lineHeight = 18.sp
+        )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = "Fecha de avistamiento",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(6.dp))
 
+        val dateShape = RoundedCornerShape(8.dp)
         Box(
             modifier = Modifier
-                .fillMaxWidth().padding(vertical = 4.dp).height(56.dp)
-                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                .clickable { showPicker = true }
+                .fillMaxWidth()
+                .height(48.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainer, dateShape)
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), dateShape)
+                .clip(dateShape) // Asegura que el efecto ripple no se salga de las esquinas
+                .clickable { showDatePicker = true }
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.CenterStart
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = sdf.format(Date(date)), modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onBackground)
-                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val formattedDate = dateFormatter.format(Date(fecha))
+                Text(
+                    text = formattedDate,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 15.sp
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Desplegar fecha",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Lugar de avistamiento",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(Modifier.height(12.dp))
 
-        Text("Lugar de avistamiento", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground)
+        OutlinedButton(
+            onClick = onOpenMap,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = FigmaGreen
+            )
+        ) {
+            Text("Seleccionar ubicación en el mapa", fontWeight = FontWeight.SemiBold)
+        }
+
+        if (selectedLatLng != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Ubicación seleccionada correctamente",
+                color = FigmaGreen,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+
         OutlinedTextField(
-            value = loc, onValueChange = onLoc,
-            placeholder = { Text("Ej: Parque del Periodista, cuadra 4...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            value = lugar,
+            onValueChange = onLugar,
+            placeholder = {
+                Text(
+                    "Ej. Distrito, calle, avenidas de referencia,\nparque, lote o veterinaria",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    fontSize = 16.sp
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 80.dp, max = 150.dp), // Se expande de forma elástica si escriben mucho
             shape = RoundedCornerShape(8.dp),
+            singleLine = false,
+            maxLines = 5,
+            textStyle = TextStyle(fontSize = 16.sp),
             colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                focusedBorderColor = FigmaGreen,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
                 focusedTextColor = MaterialTheme.colorScheme.onBackground,
                 unfocusedTextColor = MaterialTheme.colorScheme.onBackground
             )
         )
+    }
+
+    // --- DIÁLOGO PICKER DE FECHA ---
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = fecha)
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { onFecha(it) }
+                    showDatePicker = false
+                }) {
+                    Text("Aceptar", fontWeight = FontWeight.Bold, color = FigmaGreen)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancelar")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // --- MODAL BOTTOM SHEET DE CONFIRMACIÓN DE DIRECCIÓN ---
+    if (mostrarModal) {
+        ModalBottomSheet(
+            onDismissRequest = onDismissModal,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 8.dp, bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "¿Es la dirección correcta?",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Una ubicación precisa ayuda a que el dueño original reconozca la zona y pueda ir por ella de inmediato.",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = onDireccionConfirmada,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = FigmaGreen,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Text("Sí, correcto", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onDismissModal,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Text("No, quiero cambiar", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                }
+            }
+        }
     }
 }
 
 @Composable
 fun PasoDescripcionEncontrada(desc: String, onDescChanged: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Detalles adicionales", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onBackground)
-        Text("¿Tiene collar? ¿Está herido? ¿Es manso o temeroso?", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        Text(
+            text = "Detalles adicionales",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Text(
+            text = "¿Tiene collar? ¿Está herido? ¿Es manso o temeroso?",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp
+        )
         Spacer(Modifier.height(24.dp))
         OutlinedTextField(
-            value = desc, onValueChange = onDescChanged,
-            placeholder = { Text("Describe el estado de la mascota...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
-            modifier = Modifier.fillMaxWidth().height(140.dp),
+            value = desc,
+            onValueChange = onDescChanged,
+            placeholder = {
+                Text(
+                    text = "Describe el estado de la mascota...",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp),
             shape = RoundedCornerShape(8.dp),
             maxLines = 5,
             colors = OutlinedTextFieldDefaults.colors(
@@ -473,30 +793,37 @@ fun PasoDescripcionEncontrada(desc: String, onDescChanged: (String) -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PasoContactoEncontrada(
-    name: String, phone: String, email: String, accepted: Boolean,
-    onName: (String) -> Unit, onPhone: (String) -> Unit, onEmail: (String) -> Unit, onAccepted: (Boolean) -> Unit
+    name: String,
+    phone: String,
+    email: String,
+    accepted: Boolean,
+    onName: (String) -> Unit,
+    onPhone: (String) -> Unit,
+    onEmail: (String) -> Unit,
+    onAccepted: (Boolean) -> Unit
 ) {
-    // Estados internos para calzar con la lógica de tu otro componente
-    var terminosAceptados by remember { mutableStateOf(false) }
+    // Para simplificar la validación en el Wizard de 2 Checkboxes de manera sincronizada y evitar bloqueos,
+    // usamos dos estados locales pero vinculados directamente con el callback de salida.
+    var terminosAceptados by remember { mutableStateOf(accepted) }
     var datosPublicosAceptados by remember { mutableStateOf(accepted) }
     var mostrarModalTerminos by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            "Información de contacto",
+            text = "Información de contacto",
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            "¿Cómo te contactarán si encuentran a tu mascota?",
+            text = "¿Cómo te contactará el dueño legítimo para recuperar a la mascota?",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp
         )
         Spacer(Modifier.height(24.dp))
 
         Text(
-            "Nombre de contacto",
+            text = "Nombre de contacto",
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onBackground
@@ -504,15 +831,21 @@ fun PasoContactoEncontrada(
         OutlinedTextField(
             value = name,
             onValueChange = onName,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
             shape = RoundedCornerShape(8.dp),
-            singleLine = true
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+            )
         )
 
         Spacer(Modifier.height(12.dp))
 
         Text(
-            "Teléfono / Celular",
+            text = "Teléfono / Celular",
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onBackground
@@ -520,15 +853,22 @@ fun PasoContactoEncontrada(
         OutlinedTextField(
             value = phone,
             onValueChange = onPhone,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
             shape = RoundedCornerShape(8.dp),
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), // Filtro de teclado numérico
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+            )
         )
 
         Spacer(Modifier.height(12.dp))
 
         Text(
-            "Correo electrónico",
+            text = "Correo electrónico",
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onBackground
@@ -536,9 +876,16 @@ fun PasoContactoEncontrada(
         OutlinedTextField(
             value = email,
             onValueChange = onEmail,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
             shape = RoundedCornerShape(8.dp),
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), // Filtro de teclado de Email
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+            )
         )
 
         Spacer(Modifier.height(20.dp))
@@ -554,7 +901,7 @@ fun PasoContactoEncontrada(
                 colors = CheckboxDefaults.colors(checkedColor = FigmaGreen)
             )
             Text(
-                text = "Acepto los términos de ayuda y protección animal.",
+                text = "Acepto que mis datos se publiquen con fines de ayuda animal.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 4.dp)
@@ -604,12 +951,16 @@ fun PasoContactoEncontrada(
             onDismissRequest = { mostrarModalTerminos = false }
         ) {
             Surface(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surface
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Row(
@@ -675,7 +1026,9 @@ fun PasoContactoEncontrada(
 @Composable
 fun PantallaHechoEncontrada(onFinished: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -704,7 +1057,9 @@ fun PantallaHechoEncontrada(onFinished: () -> Unit) {
         Spacer(Modifier.height(40.dp))
         Button(
             onClick = onFinished,
-            modifier = Modifier.fillMaxWidth().height(50.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
             colors = ButtonDefaults.buttonColors(containerColor = FigmaGreen),
             shape = RoundedCornerShape(12.dp)
         ) {
@@ -717,13 +1072,20 @@ fun PantallaHechoEncontrada(onFinished: () -> Unit) {
 // COMPONENTE: BOTONES DE NAVEGACIÓN (CORREGIDOS ESTILO FIGMA)
 // =================================================================
 @Composable
-fun NavigationButtonsEncontrada(step: Int, accepted: Boolean, onNext: () -> Unit, onBack: () -> Unit, onOmit: () -> Unit) {
+fun NavigationButtonsEncontrada(
+    step: Int,
+    accepted: Boolean,
+    onNext: () -> Unit,
+    onBack: () -> Unit,
+    onOmit: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         val botonHabilitado = step != 5 || accepted
+
         Button(
             onClick = onNext,
             enabled = botonHabilitado,
@@ -731,20 +1093,25 @@ fun NavigationButtonsEncontrada(step: Int, accepted: Boolean, onNext: () -> Unit
                 containerColor = if (botonHabilitado) FigmaGreen else MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = if (botonHabilitado) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
             ),
-            modifier = Modifier.fillMaxWidth().height(50.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
             Text(
-                text = if (step == 5) "Publicar" else "Próximo",
+                text = if (step == 5) "Publicar" else "Siguiente", // Cambiado "Próximo" por "Siguiente"
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
         }
+
         if (step == 2 || step == 4) {
+            val omitShape = RoundedCornerShape(8.dp)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
+                    .clip(omitShape) // ← Recorta el ripple para que respete los bordes redondeados
                     .clickable { onOmit() },
                 contentAlignment = Alignment.Center
             ) {
@@ -762,6 +1129,7 @@ fun NavigationButtonsEncontrada(step: Int, accepted: Boolean, onNext: () -> Unit
 // =================================================================
 // DIÁLOGOS EMERGENTES TIPO BOTTOM SHEET (DESGLOZAN DESDE ABAJO)
 // =================================================================
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OmitirFotoDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
@@ -793,7 +1161,9 @@ fun OmitirFotoDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = FigmaGreen),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -802,9 +1172,15 @@ fun OmitirFotoDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
             TextButton(
                 onClick = onConfirm,
-                modifier = Modifier.fillMaxWidth().height(48.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
             ) {
-                Text("Omitir de todas formas", color = MaterialTheme.colorScheme.outline, fontWeight = FontWeight.Medium)
+                Text(
+                    text = "Omitir de todas formas",
+                    color = MaterialTheme.colorScheme.outline,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
@@ -841,7 +1217,9 @@ fun OmitirDescDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = FigmaGreen),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -850,13 +1228,20 @@ fun OmitirDescDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
             TextButton(
                 onClick = onConfirm,
-                modifier = Modifier.fillMaxWidth().height(48.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
             ) {
-                Text("Omitir de todas formas", color = MaterialTheme.colorScheme.outline, fontWeight = FontWeight.Medium)
+                Text(
+                    text = "Omitir de todas formas",
+                    color = MaterialTheme.colorScheme.outline,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfirmarUbicacionDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
@@ -889,7 +1274,9 @@ fun ConfirmarUbicacionDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
             Spacer(modifier = Modifier.height(28.dp))
             Button(
                 onClick = onConfirm,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = FigmaGreen),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -898,7 +1285,9 @@ fun ConfirmarUbicacionDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
             TextButton(
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth().height(50.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
             ) {
                 Text(
                     text = "No, quiero cambiar",

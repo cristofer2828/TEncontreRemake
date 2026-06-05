@@ -1,12 +1,8 @@
 package com.example.teencontre.data.model
 
-// Usamos sealed class para asegurar que el sistema solo conozca estos dos tipos de usuario
-sealed class UserRole(val type: String) {
-    object Usuario : UserRole("USUARIO")
-    object Organizacion : UserRole("ORG")
-}
 
-// Clase base utilizando data class para facilitar la serialización
+
+
 abstract class BaseUser {
     abstract val id: Int
     abstract val email: String

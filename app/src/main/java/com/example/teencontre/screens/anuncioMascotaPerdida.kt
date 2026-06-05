@@ -1,5 +1,6 @@
 package com.example.teencontre.screens
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -25,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Date
-import androidx.compose.ui.platform.LocalLocale
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,6 +45,7 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.MapView
 import com.google.android.gms.maps.model.MarkerOptions
 import android.location.Geocoder
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,19 +55,32 @@ import androidx.compose.ui.text.TextStyle
 // IMPORTACIONES DE TU CONFIGURACIÓN DE BASE DE DATOS
 import com.example.teencontre.data.local.DatabaseHelper
 import com.example.teencontre.data.model.MascotasPerdidasModel
+import com.example.teencontre.data.remote.RetrofitClient
+import com.example.teencontre.sharedprefs.PreferenceManager
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.CoroutineScope
+import androidx.compose.ui.platform.LocalLocale
 
 
+@SuppressLint("CoroutineCreationDuringComposition")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
+
     val context = LocalContext.current
+    val prefs = remember {
+        PreferenceManager(context)
+    }
+
+    val usuario = prefs.getLoggedUser()
     val sharedPreferences = remember { context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE) }
     val dbHelper = remember { DatabaseHelper(context) }
     val coroutineScope = rememberCoroutineScope()
     var step by remember { mutableIntStateOf(1) }
     val totalSteps = 5
-
     // --- ESTADOS DE LOS DATOS RECOGIDOS ---
     var nombreMascota by remember { mutableStateOf("") }
     var razaMascota by remember { mutableStateOf("") }
@@ -89,7 +103,10 @@ fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
     var showOmitirDescSheet by remember { mutableStateOf(false) }
     var showConfirmarDireccionSheet by remember { mutableStateOf(false) }
 
-    val sdf = SimpleDateFormat("dd/MM/yyyy", LocalLocale.current.platformLocale)
+    val sdf = SimpleDateFormat(
+        "yyyy-MM-dd",
+        LocalLocale.current.platformLocale
+    )
     if (showMapPicker) {
         SeleccionarUbicacionScreen(
             onConfirmar = { latLng ->
@@ -230,10 +247,15 @@ fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
                             step++
                         } else {
                             var fotoBytes: ByteArray? = null
+
                             if (selectedPhotos.isNotEmpty()) {
                                 try {
-                                    val inputStream = context.contentResolver.openInputStream(selectedPhotos[0])
-                                    fotoBytes = inputStream?.readBytes()
+                                    val inputStream =
+                                        context.contentResolver.openInputStream(
+                                            selectedPhotos[0]
+                                        )
+                                    fotoBytes =
+                                        inputStream?.readBytes()
                                     inputStream?.close()
                                 } catch (e: Exception) {
                                     e.printStackTrace()
@@ -242,7 +264,7 @@ fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
 
                             val mascotaReportada = MascotasPerdidasModel(
                                 id = 0,
-                                idUsuario = 0,
+                                idUsuario = usuario?.id ?: 0,
                                 nombreM = nombreMascota,
                                 especie = petType,
                                 genero = gender,
@@ -262,44 +284,133 @@ fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
                             if (resultadoLocal > -1) {
                                 step = 6 // Cambia al frame de éxito
 
-                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                CoroutineScope(Dispatchers.IO).launch {
+
                                     try {
-                                        // Definimos los tipos de medio para mayor claridad
+
                                         val textType = "text/plain".toMediaTypeOrNull()
                                         val imageType = "image/jpeg".toMediaTypeOrNull()
 
-                                        // 1. Preparamos los textos usando el método create clásico
-                                        val idUsuarioPart = okhttp3.RequestBody.create(textType, "0")
-                                        val nombreMPart = okhttp3.RequestBody.create(textType, mascotaReportada.nombreM)
-                                        val especiePart = okhttp3.RequestBody.create(textType, mascotaReportada.especie)
-                                        val generoPart = okhttp3.RequestBody.create(textType, mascotaReportada.genero)
-                                        val razaPart = okhttp3.RequestBody.create(textType, mascotaReportada.raza)
-                                        val fechaPart = okhttp3.RequestBody.create(textType, mascotaReportada.fecha)
-                                        val lugarPart = okhttp3.RequestBody.create(textType, mascotaReportada.lugar)
-                                        val descPart = okhttp3.RequestBody.create(textType, mascotaReportada.descripcion)
-                                        val contactoPart = okhttp3.RequestBody.create(textType, mascotaReportada.contacto)
-                                        val telefonoPart = okhttp3.RequestBody.create(textType, mascotaReportada.telefono)
-                                        val correoPart = okhttp3.RequestBody.create(textType, mascotaReportada.correo)
-
-                                        // 2. Preparamos la foto usando el método create clásico
-                                        val fotoPart = mascotaReportada.foto?.let { bytes ->
-                                            val requestFile = okhttp3.RequestBody.create(imageType, bytes)
-                                            okhttp3.MultipartBody.Part.createFormData("foto", "mascota.jpg", requestFile)
-                                        }
-
-                                        // 3. Enviamos los parámetros separados
-                                        val response = com.example.teencontre.data.remote.RetrofitClient.instance.subirPerdido(
-                                            idUsuarioPart, nombreMPart, especiePart, generoPart, razaPart,
-                                            fechaPart, lugarPart, descPart, contactoPart, telefonoPart, correoPart, fotoPart
+                                        // Campos de texto
+                                        val idUsuarioPart = RequestBody.create(
+                                            textType,
+                                            mascotaReportada.idUsuario.toString()
                                         )
 
-                                        if (response.isSuccessful) {
-                                            println("Sincronización exitosa con Azure.")
-                                        } else {
-                                            println("Error de Azure: ${response.code()}")
+                                        val nombreMPart = RequestBody.create(
+                                            textType,
+                                            mascotaReportada.nombreM
+                                        )
+
+                                        val especiePart = RequestBody.create(
+                                            textType,
+                                            mascotaReportada.especie
+                                        )
+
+                                        val generoPart = RequestBody.create(
+                                            textType,
+                                            mascotaReportada.genero
+                                        )
+
+                                        val razaPart = RequestBody.create(
+                                            textType,
+                                            mascotaReportada.raza
+                                        )
+
+                                        val fechaPart = RequestBody.create(
+                                            textType,
+                                            mascotaReportada.fecha
+                                        )
+
+                                        val lugarPart = RequestBody.create(
+                                            textType,
+                                            mascotaReportada.lugar
+                                        )
+
+                                        val descPart = RequestBody.create(
+                                            textType,
+                                            mascotaReportada.descripcion
+                                        )
+
+                                        val contactoPart = RequestBody.create(
+                                            textType,
+                                            mascotaReportada.contacto
+                                        )
+
+                                        val telefonoPart = RequestBody.create(
+                                            textType,
+                                            mascotaReportada.telefono
+                                        )
+
+                                        val correoPart = RequestBody.create(
+                                            textType,
+                                            mascotaReportada.correo
+                                        )
+
+                                        // Foto
+                                        val fotoPart = mascotaReportada.foto?.let { bytes ->
+                                            val requestFile = RequestBody.create(imageType, bytes)
+
+                                            MultipartBody.Part.createFormData(
+                                                "foto",
+                                                "mascota.jpg",
+                                                requestFile
+                                            )
                                         }
+
+                                        Log.d(
+                                            "AZURE",
+                                            "Enviando publicación..."
+                                        )
+
+                                        val response =
+                                            RetrofitClient.instance.subirPerdido(
+
+                                                idUsuarioPart,
+                                                nombreMPart,
+                                                especiePart,
+                                                generoPart,
+                                                razaPart,
+
+                                                fotoPart,
+
+                                                fechaPart,
+                                                lugarPart,
+                                                descPart,
+                                                contactoPart,
+                                                telefonoPart,
+                                                correoPart
+                                            )
+
+                                        if (response.isSuccessful) {
+
+                                            Log.d(
+                                                "AZURE",
+                                                "Publicación guardada correctamente"
+                                            )
+
+                                        } else {
+
+                                            Log.e(
+                                                "AZURE",
+                                                "Código HTTP: ${response.code()}"
+                                            )
+
+                                            Log.e(
+                                                "AZURE",
+                                                response.errorBody()?.string()
+                                                    ?: "Sin detalle del servidor"
+                                            )
+                                        }
+
                                     } catch (e: Exception) {
-                                        println("Error de red: ${e.message}")
+
+                                        Log.e(
+                                            "AZURE",
+                                            "Error: ${e.message}"
+                                        )
+
+                                        e.printStackTrace()
                                     }
                                 }
                             } else {
@@ -339,17 +450,23 @@ fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
     }
 }
 
-// =================================================================
-// COMPONENTE: BOTONES DE NAVEGACIÓN
-// =================================================================
 @Composable
-fun NavigationButtons(step: Int, accepted: Boolean, onNext: () -> Unit, onBack: () -> Unit, onOmit: () -> Unit) {
+fun NavigationButtons(
+    step: Int,
+    accepted: Boolean,
+    onNext: () -> Unit,
+    onBack: () -> Unit,
+    onOmit: () -> Unit
+) {
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+
         val botonHabilitado = step != 5 || accepted
+
         Button(
             onClick = onNext,
             enabled = botonHabilitado,
@@ -357,14 +474,26 @@ fun NavigationButtons(step: Int, accepted: Boolean, onNext: () -> Unit, onBack: 
                 containerColor = Color(0xFF5E4BCE),
                 contentColor = Color.White
             ),
-            modifier = Modifier.fillMaxWidth().height(50.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text(if (step == 5) "Publicar un anuncio" else "Siguiente", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+
+            Text(
+                text = if (step == 5)
+                    "Publicar un anuncio"
+                else
+                    "Siguiente",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
         }
 
         if (step == 2 || step == 4) {
+
             Spacer(modifier = Modifier.height(16.dp))
+
             Button(
                 onClick = onOmit,
                 colors = ButtonDefaults.buttonColors(
@@ -374,18 +503,23 @@ fun NavigationButtons(step: Int, accepted: Boolean, onNext: () -> Unit, onBack: 
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        RoundedCornerShape(12.dp)
+                    ),
                 elevation = ButtonDefaults.buttonElevation(0.dp)
             ) {
-                Text("Omitir", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+
+                Text(
+                    text = "Omitir",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp
+                )
             }
         }
     }
 }
-
-// =================================================================
-// SUBPANTALLAS DEL WIZARD (DIFERENTES PASOS)
-// =================================================================
 
 @Composable
 fun PasoMascota(
@@ -560,7 +694,7 @@ fun PasoUbicacion(
     var showDatePicker by remember { mutableStateOf(false) }
 
     val dateFormatter = remember {
-        java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).apply {
+        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).apply {
             timeZone = java.util.TimeZone.getTimeZone("UTC")
         }
     }
@@ -1220,6 +1354,10 @@ fun MapaSelector(
     onPuntoSeleccionado: (LatLng) -> Unit
 ) {
     val context = LocalContext.current
+    val prefs = PreferenceManager(context)
+    val coroutineScope = rememberCoroutineScope()
+    val usuario =
+        prefs.getLoggedUser()
     val mapView = remember { MapView(context) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 

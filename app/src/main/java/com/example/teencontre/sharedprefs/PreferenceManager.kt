@@ -24,17 +24,6 @@ class PreferenceManager(context: Context) {
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson() // Instancia de Gson para serializar/deserializer objetos complejos
-
-    // --- INFORMACIÓN DE CONTACTO ---
-    fun getUserName(): String = prefs.getString(KEY_USER_NAME, "") ?: ""
-    fun setUserName(name: String) { prefs.edit { putString(KEY_USER_NAME, name) } }
-
-    fun getPhone(): String = prefs.getString(KEY_PHONE, "") ?: ""
-    fun setPhone(phone: String) { prefs.edit { putString(KEY_PHONE, phone) } }
-
-    fun getEmail(): String = prefs.getString(KEY_EMAIL, "") ?: ""
-    fun setEmail(email: String) { prefs.edit { putString(KEY_EMAIL, email) } }
-
     // --- NOTIFICACIONES ---
     fun getNotifications(): Boolean = prefs.getBoolean(KEY_NOTIFICATIONS, true)
     fun setNotifications(enabled: Boolean) { prefs.edit { putBoolean(KEY_NOTIFICATIONS, enabled) } }
@@ -70,10 +59,6 @@ class PreferenceManager(context: Context) {
         }
     }
 
-    fun updateLoggedUser(user: BaseUser) {
-
-        saveLoggedUser(user)
-    }
     fun saveLoggedUser(user: BaseUser) {
 
         val json = gson.toJson(user)

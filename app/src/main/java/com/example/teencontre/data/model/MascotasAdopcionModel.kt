@@ -1,24 +1,27 @@
 package com.example.teencontre.data.model
-data class MascotasPerdidasModel(
+
+data class MascotasAdopcionModel(
     val id: Int = 0,
-    val idUsuario: Int,
-    val nombreM: String,
+    val idUsuario: Int = 0,
     val especie: String,
     val genero: String,
     val raza: String,
+    val vacunado: Boolean,
+    val esterilizado: Boolean,
+    val desparasitado: Boolean,
+    val tamano: String,
+    val temperamento: String,
     val foto: ByteArray?,
-    val fecha: String,
-    val lugar: String,
     val descripcion: String,
-    val contacto: String,
+    val nombreOrganizacion: String,
     val telefono: String,
     val correo: String
-){
-
+) {
+    // Sobrescribimos equals y hashCode basándonos en el ID para optimizar el renderizado en la app
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
-        other as MascotasPerdidasModel
+        other as MascotasAdopcionModel
         if (id != other.id) return false
         return true
     }
@@ -27,10 +30,3 @@ data class MascotasPerdidasModel(
         return id
     }
 }
-
-data class ApiResponse(
-    val success: Boolean,
-    val message: String? = null,
-    val error: String? = null
-)
-
