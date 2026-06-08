@@ -9,7 +9,8 @@ data class MascotasEncontradasModel(
     @SerializedName("Genero") val genero: String = "",
 
     // Cambiado a Any? para soportar el String vacío "" de Azure o el ByteArray local de SQLite
-    @SerializedName("Foto") val foto: Any? = null,
+    @SerializedName("Foto")
+    val foto: Any? = null,
 
     @SerializedName("Fecha") val fecha: String = "",
     @SerializedName("Lugar") val lugar: String = "",

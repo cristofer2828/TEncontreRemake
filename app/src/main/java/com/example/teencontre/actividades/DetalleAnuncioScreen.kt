@@ -25,6 +25,11 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.TopAppBar
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.example.teencontre.viewmodel.PublicacionSeleccionadaViewModel
 
 data class Comentario(
     val nombre: String,
@@ -32,297 +37,172 @@ data class Comentario(
     val tiempo: String
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetalleAnuncioScreen(
+
     onBack: () -> Unit,
-    onNavigate: (String) -> Unit
+
+    onVerUbicacion: (String) -> Unit
+
 ) {
 
-    var nuevoComentario by remember { mutableStateOf("") }
-    var comentarios by remember {
-        mutableStateOf(
-            listOf(
-                Comentario("Carlos", "Creo que lo vi cerca del parque", "hace 2 horas"),
-                Comentario("María", "Está igualito al que vi ayer", "hace 5 horas"),
-                Comentario("Luis", "Voy a estar atento por mi zona", "hace 1 día")
-            )
-        )
-    }
+    val viewModel: PublicacionSeleccionadaViewModel =
+        viewModel()
 
-    // Estado cambiaria y se veria el modal de dueño y cel
-    var mostrarModal by remember { mutableStateOf(false) }
+    val publicacion =
+        viewModel.publicacionSeleccionada.value
 
+    if (publicacion == null) {
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Detalle del anuncio") },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        onNavigate("encuentranos")
-                    }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = null)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                )
-            )
-        },
-        bottomBar = {
-            BottomNavigationBar(
-                onProfileClick = { onNavigate("profile") },
-                onPublishClick = { onNavigate("selector") },
-                onEncuentranosClick = { onNavigate("Encuéntranos") },
-                onMapaClick = { onNavigate("mapa") }
-            )
-        }
-    ) { padding ->
-
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
 
-            Image(
-                painter = painterResource(R.drawable.adopta),
+            Text("No se encontró la publicación")
+        }
+
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(
+                rememberScrollState()
+            )
+            .padding(16.dp)
+    ) {
+
+        Button(
+            onClick = onBack
+        ) {
+            Text("Volver")
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        publicacion.foto?.let { foto ->
+
+            AsyncImage(
+                model = foto,
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp),
+                    .height(250.dp),
                 contentScale = ContentScale.Crop
             )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                repeat(3) {
-                    Box(
-                        modifier = Modifier
-                            .padding(4.dp)
-                            .size(8.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(Color.Gray)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "[Tipo] [Estado], [Ciudad]",
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "[DESCRIPCION]",
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = { mostrarModal = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-            ) {
-                Text("Mostrar número")
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Compartir")
-                IconButton(onClick = { }) {
-                    Icon(Icons.Default.Share, contentDescription = null)
-                }
-            }
-
-            Divider()
-
-            InfoRow("Raza", "-")
-            InfoRow("Género", "Macho")
-            InfoRow("Fecha anuncio", "[FECHA]")
-            InfoRow("Fecha pérdida", "[FECHA]")
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
-                OutlinedTextField(
-                    value = nuevoComentario,
-                    onValueChange = { nuevoComentario = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Escribe un comentario...") }
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Button(
-                    onClick = {
-                        if (nuevoComentario.isNotBlank()) {
-
-                            val nuevo = Comentario(
-                                nombre = "Tú",
-                                mensaje = nuevoComentario,
-                                tiempo = "ahora"
-                            )
-
-                            comentarios = listOf(nuevo) + comentarios // 🔥 agrega arriba
-                            nuevoComentario = ""
-                        }
-                    }
-                ) {
-                    Text("Enviar")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Comentarios",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            comentarios.forEachIndexed { index, comentario ->
-
-
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn(
-                        animationSpec = tween(1000)
-                    ) +
-                            scaleIn(
-                                initialScale = 0.8f,
-                                animationSpec = tween(500)
-                            ) +
-                            expandVertically(
-                                animationSpec = tween(500))
-                ) {
-                    ComentarioItem(comentario)
-                }
-            }
-
         }
 
-        if (mostrarModal) {
-            ModalBottomSheet(
-                onDismissRequest = { mostrarModal = false }
-            ) {
-                ContenidoModal(
-                    nombre = "Juan Pérez",
-                    telefono = "987654321"
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun InfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, color = Color.Gray)
-        Text(value)
-    }
-}
-
-
-
-@Composable
-fun ContenidoModal(nombre: String, telefono: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Contacto",
-            style = MaterialTheme.typography.titleLarge
+            text = publicacion.nombreMascota
+                ?: publicacion.especie,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Text(
+            text = publicacion.tipo,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Text(text = "Dueño: $nombre")
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(text = "Teléfono: $telefono")
-
-        Spacer(modifier = Modifier.height(20.dp))
-    }
-}
-
-
-@Composable
-fun ComentarioItem(comentario: Comentario) {
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary
+        Text(
+            text = publicacion.descripcion
         )
 
-    ) {
+        Spacer(modifier = Modifier.height(16.dp))
 
-        Column(modifier = Modifier.padding(12.dp)) {
+        Text("Especie: ${publicacion.especie}")
+        Text("Género: ${publicacion.genero}")
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = Color.Black
-                )
+        publicacion.raza?.let {
+            Text("Raza: $it")
+        }
 
-                Spacer(modifier = Modifier.width(8.dp))
+        publicacion.fecha?.let {
+            Text("Fecha: $it")
+        }
 
-                Text(
-                    text = comentario.nombre,
-                    style = MaterialTheme.typography.titleMedium
-                )
+        Spacer(modifier = Modifier.height(12.dp))
 
-                Spacer(modifier = Modifier.weight(1f))
+        publicacion.telefono?.let {
+            Text("Teléfono: $it")
+        }
 
-                Text(
-                    text = comentario.tiempo,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Black
-                )
+        publicacion.correo?.let {
+            Text("Correo: $it")
+        }
+
+        if (publicacion.tipo == "ADOPCION") {
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                "Estado de salud",
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                "Vacunado: ${
+                    if (publicacion.vacunado == true)
+                        "Sí"
+                    else
+                        "No"
+                }"
+            )
+
+            Text(
+                "Esterilizado: ${
+                    if (publicacion.esterilizado == true)
+                        "Sí"
+                    else
+                        "No"
+                }"
+            )
+
+            Text(
+                "Desparasitado: ${
+                    if (publicacion.desparasitado == true)
+                        "Sí"
+                    else
+                        "No"
+                }"
+            )
+
+            publicacion.tamano?.let {
+                Text("Tamaño: $it")
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            publicacion.temperamento?.let {
+                Text("Temperamento: $it")
+            }
 
-            Text(text = comentario.mensaje)
+            publicacion.nombreOrganizacion?.let {
+                Text("Organización: $it")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        if (!publicacion.lugar.isNullOrBlank()) {
+
+            Button(
+                onClick = {
+
+                    onVerUbicacion(
+                        publicacion.lugar
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+
+                Text("📍 Ver ubicación")
+            }
         }
     }
 }

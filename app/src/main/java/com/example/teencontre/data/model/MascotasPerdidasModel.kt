@@ -14,7 +14,8 @@ data class MascotasPerdidasModel(
     @SerializedName("Raza") val raza: String = "",
 
     // Cambiamos estrictamente a Any? solo aquí para que soporte dinámicamente el String vacío "" de Azure o el ByteArray local
-    @SerializedName("Foto") val foto: Any? = null,
+    @SerializedName("Foto")
+    val foto: Any? = null,
 
     @SerializedName("Fecha") val fecha: String = "",
     @SerializedName("Lugar") val lugar: String = "",

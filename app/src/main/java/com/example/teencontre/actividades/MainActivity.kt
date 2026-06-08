@@ -74,6 +74,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import com.example.teencontre.data.model.UpdateUserRequest
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import coil.compose.AsyncImage
 import com.example.teencontre.data.model.EliminarRequest
 
 class MainActivity : ComponentActivity() {
@@ -200,8 +201,16 @@ class MainActivity : ComponentActivity() {
                                 onPublishClick = { currentScreen = "selector" }
                             )
                             "detalle_anuncio" -> DetalleAnuncioScreen(
-                                onBack = { currentScreen = "encuentranos" },
-                                onNavigate = { currentScreen = it }
+
+                                onBack = {
+                                    currentScreen = "encuentranos"
+                                },
+
+                                onVerUbicacion = { lugar ->
+
+                                    // luego aquí puedes guardar el lugar seleccionado
+                                    currentScreen = "mapa"
+                                }
                             )
                             "terms_user" -> TermsFrame(
                                 title = "Términos de Usuario",
@@ -1406,14 +1415,11 @@ fun ProfileScreen(
                 // 1. RENDER PERDIDOS
                 items(listaPerdidos) { mascota ->
                     AdItemCard(
-                        description = mascota.nombreM ?: "Sin nombre",
+                        description = mascota.nombreM.ifEmpty { "Sin nombre" },
                         status = "PERDIDA",
-                        location = mascota.lugar ?: "No especificado",
-                        fotoBytes = when (val f = mascota.foto as Any?) {
-                            is ByteArray -> f
-                            is String -> if (f.isNotEmpty()) android.util.Base64.decode(f, android.util.Base64.DEFAULT) else null
-                            else -> null
-                        },
+                        location = mascota.lugar.ifEmpty { "No especificado" },
+
+                        foto = mascota.foto,
                         onEdit = { onNavigate("editar_perdido/${mascota.id}") },
                         onDelete = {
                             coroutineScope.launch(Dispatchers.IO) {
@@ -1464,14 +1470,16 @@ fun ProfileScreen(
                 // 2. RENDER ENCONTRADOS
                 items(listaEncontrados) { mascota ->
                     AdItemCard(
-                        description = if (!mascota.especie.isNullOrEmpty()) "Especie: ${mascota.especie}" else "Especie no especificada",
+                        description =
+                            if (mascota.especie.isNotEmpty())
+                                "Especie: ${mascota.especie}"
+                            else
+                                "Especie no especificada",
+
+                        location = mascota.lugar.ifEmpty { "No especificado" },
+
+                        foto = mascota.foto,
                         status = "ENCONTRADA",
-                        location = mascota.lugar ?: "No especificado",
-                        fotoBytes = when (val f = mascota.foto as Any?) {
-                            is ByteArray -> f
-                            is String -> if (f.isNotEmpty()) android.util.Base64.decode(f, android.util.Base64.DEFAULT) else null
-                            else -> null
-                        },
                         onEdit = { onNavigate("editar_encontrada/${mascota.id}") },
                         onDelete = {
                             coroutineScope.launch(Dispatchers.IO) {
@@ -1515,17 +1523,13 @@ fun ProfileScreen(
 
                 // 3. RENDER ADOPCIONES
                 items(listaAdopciones) { mascota ->
-                    val esp = mascota.especie ?: "Mascota"
-                    val raz = mascota.raza ?: "Mestizo"
+                    val esp = mascota.especie.ifEmpty { "Mascota" }
+                    val raz = mascota.raza.ifEmpty { "Mestizo" }
                     AdItemCard(
                         description = "$esp ($raz)",
                         status = "ADOPCION",
-                        location = mascota.nombreOrganizacion ?: "Particular",
-                        fotoBytes = when (val f = mascota.foto as Any?) {
-                            is ByteArray -> f
-                            is String -> if (f.isNotEmpty()) android.util.Base64.decode(f, android.util.Base64.DEFAULT) else null
-                            else -> null
-                        },
+                        location = mascota.nombreOrganizacion.ifEmpty { "Particular" },
+                        foto = mascota.foto,
                         onEdit = { onNavigate("editar_adopcion/${mascota.id}") },
                         onDelete = {
                             coroutineScope.launch(Dispatchers.IO) {
@@ -1607,7 +1611,7 @@ fun AdItemCard(
     description: String,
     status: String,
     location: String,
-    fotoBytes: ByteArray?,
+    foto: Any?,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -1626,29 +1630,56 @@ fun AdItemCard(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+
             Box(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.LightGray),
-                contentAlignment = Alignment.Center
+                    .background(Color.LightGray)
             ) {
-                if (fotoBytes != null && fotoBytes.isNotEmpty()) {
-                    val bitmap = remember(fotoBytes) {
-                        BitmapFactory.decodeByteArray(fotoBytes, 0, fotoBytes.size)?.asImageBitmap()
-                    }
-                    if (bitmap != null) {
-                        Image(
-                            bitmap = bitmap,
+
+                when (foto) {
+
+                    is String -> {
+                        AsyncImage(
+                            model = foto,
                             contentDescription = "Foto mascota",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
-                    } else {
-                        Text(text = "🐾", fontSize = 24.sp)
                     }
-                } else {
-                    Text(text = "🐾", fontSize = 24.sp)
+
+                    is ByteArray -> {
+
+                        val bitmap = remember(foto) {
+                            BitmapFactory.decodeByteArray(
+                                foto,
+                                0,
+                                foto.size
+                            )?.asImageBitmap()
+                        }
+
+                        if (bitmap != null) {
+                            Image(
+                                bitmap = bitmap,
+                                contentDescription = "Foto mascota",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                "🐾",
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        }
+                    }
+
+                    else -> {
+                        Text(
+                            "🐾",
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
                 }
             }
 
@@ -1657,23 +1688,25 @@ fun AdItemCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
+
                 Text(
                     text = description,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontSize = 14.sp
                 )
+
                 Text(
                     text = status.uppercase(),
                     color = when (status.uppercase()) {
                         "PERDIDA" -> Color(0xFF7C4DFF)
                         "ENCONTRADA" -> Color(0xFF4CAF50)
                         "ADOPCION" -> Color(0xFF2196F3)
-                        else -> Color(0xFF7C4DFF)
+                        else -> Color.Gray
                     },
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
+
                 Text(
                     text = location,
                     color = Color.Gray,
@@ -1681,22 +1714,18 @@ fun AdItemCard(
                 )
             }
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
+            Column {
+                IconButton(onClick = onEdit) {
                     Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = "Editar anuncio",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Editar"
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+
+                IconButton(onClick = onDelete) {
                     Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = "Eliminar anuncio",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Eliminar"
                     )
                 }
             }

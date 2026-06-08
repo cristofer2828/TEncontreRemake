@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -32,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.teencontre.R
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.teencontre.viewmodel.PublicacionSeleccionadaViewModel
 import com.example.teencontre.viewmodel.PublicacionesViewModel
 
 @Composable
@@ -56,7 +62,9 @@ fun EncuentranosScreen(
     onNavigate: (String) -> Unit
 ) {
     val publicacionesViewModel: PublicacionesViewModel = viewModel()
-
+    LaunchedEffect(Unit) {
+        publicacionesViewModel.cargarPublicaciones()
+    }
     val publicaciones = publicacionesViewModel.publicaciones
     var mostrarFiltros by remember { mutableStateOf(false) }
 
@@ -108,6 +116,17 @@ fun EncuentranosScreen(
 
         coincideEstado && coincideTipo
     }
+    val filtrosSeleccionados = buildList {
+
+        if (desaparecido) add("Desaparecido")
+        if (encontrado) add("Encontrado")
+        if (adopcion) add("Adopción")
+
+        if (perro) add("Perro")
+        if (gato) add("Gato")
+        if (otro) add("Otro")
+    }.joinToString(", ")
+
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
@@ -132,8 +151,8 @@ fun EncuentranosScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Anuncios",
-                    fontSize = 22.sp,
+                    text = "Mascotas Reportadas",
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
@@ -156,9 +175,15 @@ fun EncuentranosScreen(
                     Text("Filtros: ")
 
                     Text(
-                        text = "No seleccionado",
+                        text = filtrosSeleccionados.ifEmpty { "No seleccionado" },
+
                         color = Color(0xFF6C63FF),
-                        modifier = Modifier.weight(1f)
+
+                        modifier = Modifier.weight(1f),
+
+                        maxLines = 1,
+
+                        overflow = TextOverflow.Ellipsis
                     )
 
                     Icon(
@@ -212,29 +237,48 @@ fun EncuentranosScreen(
                     }
                 }
             }
-            Column(
-                modifier = Modifier.verticalScroll(
-                    rememberScrollState()
+            val publicacionSeleccionadaViewModel: PublicacionSeleccionadaViewModel =
+                viewModel()
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 8.dp,
+                    end = 8.dp,
+                    top = 4.dp,
+                    bottom = 90.dp
                 )
             ) {
 
-                publicacionesFiltradas.forEach { publicacion ->
+                items(publicacionesFiltradas) { publicacion ->
 
                     val colorEstado = when (publicacion.tipo) {
+
                         "PERDIDA" -> Color(0xFFE53935)
+
                         "ENCONTRADA" -> Color(0xFF43A047)
-                        "ADOPCION" -> Color(0xFF1E88E5)
-                        else -> MaterialTheme.colorScheme.primary
+
+                        else -> Color(0xFF5E35B1)
                     }
 
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .padding(vertical = 6.dp)
                             .clickable {
+
+                                publicacionSeleccionadaViewModel
+                                    .seleccionar(publicacion)
+
                                 onNavigate("detalle_anuncio")
                             },
-                        shape = RoundedCornerShape(18.dp),
+
+                        shape = RoundedCornerShape(20.dp),
+
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFF8F9FC)
+                        ),
+
                         elevation = CardDefaults.cardElevation(
                             defaultElevation = 4.dp
                         )
@@ -247,49 +291,80 @@ fun EncuentranosScreen(
                             AsyncImage(
                                 model = publicacion.foto,
                                 contentDescription = null,
+
                                 modifier = Modifier
-                                    .size(95.dp)
-                                    .clip(RoundedCornerShape(14.dp)),
-                                contentScale = ContentScale.Crop
+                                    .size(100.dp)
+                                    .clip(
+                                        RoundedCornerShape(16.dp)
+                                    ),
+
+                                contentScale = ContentScale.Crop,
+
+                                placeholder = painterResource(
+                                    R.drawable.logo_perros
+                                ),
+
+                                error = painterResource(
+                                    R.drawable.logo_perros
+                                )
+                            )
+
+                            Spacer(
+                                modifier = Modifier.width(12.dp)
                             )
 
                             Column(
-                                modifier = Modifier
-                                    .padding(start = 12.dp)
-                                    .weight(1f)
+                                modifier = Modifier.weight(1f)
                             ) {
+
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = colorEstado.copy(alpha = 0.15f)
+                                ) {
+
+                                    Text(
+                                        text = publicacion.tipo,
+
+                                        color = colorEstado,
+
+                                        modifier = Modifier.padding(
+                                            horizontal = 10.dp,
+                                            vertical = 4.dp
+                                        ),
+
+                                        fontSize = 11.sp,
+
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Spacer(
+                                    modifier = Modifier.height(6.dp)
+                                )
 
                                 Text(
                                     text = publicacion.nombreMascota
                                         ?: publicacion.especie,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp
+
+                                    fontSize = 18.sp,
+
+                                    fontWeight = FontWeight.Bold
                                 )
 
                                 Spacer(
                                     modifier = Modifier.height(4.dp)
                                 )
 
-                                AssistChip(
-                                    onClick = {},
-                                    label = {
-                                        Text(publicacion.tipo)
-                                    },
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = colorEstado.copy(alpha = 0.15f),
-                                        labelColor = colorEstado
-                                    )
-                                )
-
-                                Spacer(
-                                    modifier = Modifier.height(8.dp)
-                                )
-
                                 Text(
                                     text = publicacion.descripcion,
+
                                     maxLines = 2,
+
                                     overflow = TextOverflow.Ellipsis,
-                                    fontSize = 14.sp
+
+                                    fontSize = 13.sp,
+
+                                    color = Color.Gray
                                 )
 
                                 Spacer(
@@ -297,16 +372,31 @@ fun EncuentranosScreen(
                                 )
 
                                 Text(
-                                    text = "📍 ${publicacion.lugar ?: "Ubicación no registrada"}",
+                                    text =
+                                        "📍 ${
+                                            publicacion.lugar
+                                                ?: "Sin ubicación"
+                                        }",
+
                                     fontSize = 12.sp,
-                                    color = Color.Gray
+
+                                    color = Color.DarkGray
                                 )
 
-                                Text(
-                                    text = "🐾 ${publicacion.especie} • ${publicacion.genero}",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
+                                publicacion.fecha?.let {
+
+                                    Spacer(
+                                        modifier = Modifier.height(4.dp)
+                                    )
+
+                                    Text(
+                                        text = "📅 $it",
+
+                                        fontSize = 11.sp,
+
+                                        color = Color.Gray
+                                    )
+                                }
                             }
                         }
                     }
