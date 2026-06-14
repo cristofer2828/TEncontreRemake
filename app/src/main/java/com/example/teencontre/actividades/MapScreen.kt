@@ -1,6 +1,11 @@
-package com.example.teencontre.actividades // Asegúrate de que este sea tu package real
+package com.example.teencontre.actividades
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import android.os.Bundle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -11,10 +16,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.MapView
@@ -49,7 +56,7 @@ fun MapScreen(
                 .padding(paddingValues)
         ) {
             val ubicacionDefault = Ubicacion(
-                LatLng(-11.9592875, -77.0052892), // Coordenadas de Lima
+                LatLng(-11.9592875, -77.0052892),
                 "Ubicación",
                 "Mascotas cerca de ti"
             )
@@ -70,27 +77,106 @@ fun MapScreen(
     }
 }
 
+@SuppressLint("MissingPermission")
 @Composable
 fun MyMap(ubicacion: Ubicacion, onReady: (GoogleMap) -> Unit) {
     val context = LocalContext.current
     val mapView = remember { MapView(context) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val fusedLocationClient = remember {
+        LocationServices.getFusedLocationProviderClient(context)
+    }
 
-    // Usamos el observador de ciclo de vida
-    lifecycle.addObserver(rememberMapLifeCycle(map = mapView))
+    var googleMapRef by remember { mutableStateOf<GoogleMap?>(null) }
 
-    AndroidView(
-        factory = {
-            mapView.apply {
-                getMapAsync { googleMap ->
-                    val zoomLevel = 15f
-                    googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(ubicacion.ubicacion, zoomLevel))
+    fun tienePermisoUbicacion(): Boolean {
+        val permisoFino = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val permisoAproximado = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        return permisoFino || permisoAproximado
+    }
+
+    fun moverAMiUbicacion(googleMap: GoogleMap) {
+        if (tienePermisoUbicacion()) {
+            googleMap.isMyLocationEnabled = true
+            googleMap.uiSettings.isMyLocationButtonEnabled = true
+
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    val miUbicacion = LatLng(location.latitude, location.longitude)
+
+                    googleMap.clear()
+                    googleMap.moveCamera(
+                        CameraUpdateFactory.newLatLngZoom(miUbicacion, 16f)
+                    )
+                    googleMap.addMarker(
+                        MarkerOptions()
+                            .position(miUbicacion)
+                            .title("Mi ubicación actual")
+                    )
+                } else {
+                    googleMap.moveCamera(
+                        CameraUpdateFactory.newLatLngZoom(ubicacion.ubicacion, 15f)
+                    )
                     googleMap.addMarker(
                         MarkerOptions()
                             .position(ubicacion.ubicacion)
                             .title(ubicacion.titulo)
                             .snippet(ubicacion.descripcion)
                     )
+                }
+            }
+        }
+    }
+
+    val permisoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permisos ->
+        val permisoConcedido =
+            permisos[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                    permisos[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
+        if (permisoConcedido) {
+            googleMapRef?.let { moverAMiUbicacion(it) }
+        }
+    }
+
+    lifecycle.addObserver(rememberMapLifeCycle(map = mapView))
+
+    AndroidView(
+        factory = {
+            mapView.apply {
+                getMapAsync { googleMap ->
+                    googleMapRef = googleMap
+
+                    if (tienePermisoUbicacion()) {
+                        moverAMiUbicacion(googleMap)
+                    } else {
+                        googleMap.moveCamera(
+                            CameraUpdateFactory.newLatLngZoom(ubicacion.ubicacion, 15f)
+                        )
+                        googleMap.addMarker(
+                            MarkerOptions()
+                                .position(ubicacion.ubicacion)
+                                .title(ubicacion.titulo)
+                                .snippet(ubicacion.descripcion)
+                        )
+
+                        permisoLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }
+
                     onReady(googleMap)
                 }
             }
