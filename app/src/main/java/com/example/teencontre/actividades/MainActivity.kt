@@ -845,8 +845,7 @@ fun CreateAnnouncementScreen(
 ) {
     val primaryPurple = MaterialTheme.colorScheme.primary
     var showDialog by remember { mutableStateOf(false) }
-
-
+// Guarda la ruta de la pantalla que se está mostrando actualmente
     val context = LocalContext.current
 
     val prefs = remember {
@@ -862,9 +861,11 @@ fun CreateAnnouncementScreen(
                 usuario.esVerificada
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        var pantallaActiva by remember { mutableStateOf("publicar") }
         Scaffold(
             bottomBar = {
                 BottomNavigationBar(
+                    currentRoute = pantallaActiva,
                     onProfileClick = onProfileClick,
                     onPublishClick = onPublishClick,
                     onEncuentranosClick = { onNavigate("encuentranos") },
@@ -1028,9 +1029,15 @@ fun CreateAnnouncementScreen(
 }
 
 @Composable
-fun BottomNavigationBar(onProfileClick: () -> Unit, onPublishClick: () -> Unit, onEncuentranosClick: () -> Unit, onMapaClick: () -> Unit) {
+fun BottomNavigationBar(
+    currentRoute: String, // <-- Este parámetro recibe el valor de "pantallaActiva"
+    onPublishClick: () -> Unit,
+    onEncuentranosClick: () -> Unit,
+    onMapaClick: () -> Unit,
+    onProfileClick: () -> Unit
+) {
     val backgroundColor = MaterialTheme.colorScheme.surface
-    val selectedColor = Color(0xFF7C4DFF)
+    val selectedColor = Color(0xFF7C4DFF) // Morado de selección
     val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Row(
@@ -1042,27 +1049,28 @@ fun BottomNavigationBar(onProfileClick: () -> Unit, onPublishClick: () -> Unit, 
         verticalAlignment = Alignment.CenterVertically
     ) {
         NavigationItem(
-            icon = android.R.drawable.ic_menu_add,
+            icon = android.R.drawable.ic_menu_add, // Reemplázalo por tu pack de iconos si usas personalizados
             label = "Publicar",
-            color = unselectedColor,
+            // IMPORTANTE: Asegúrate de que el String "publicar" coincida con lo que guarda tu variable en esa sección
+            color = if (currentRoute == "publicar") selectedColor else unselectedColor,
             onClick = onPublishClick
         )
         NavigationItem(
             icon = android.R.drawable.ic_menu_search,
             label = "Encuéntralos",
-            color = unselectedColor,
+            color = if (currentRoute == "encuentranos") selectedColor else unselectedColor,
             onClick = onEncuentranosClick
         )
         NavigationItem(
             icon = android.R.drawable.ic_dialog_map,
             label = "Mapa",
-            color = unselectedColor,
+            color = if (currentRoute == "mapa") selectedColor else unselectedColor,
             onClick = onMapaClick
         )
         NavigationItem(
             icon = android.R.drawable.ic_menu_myplaces,
             label = "Perfil",
-            color = selectedColor,
+            color = if (currentRoute == "perfil") selectedColor else unselectedColor,
             onClick = onProfileClick
         )
     }
@@ -1444,6 +1452,7 @@ fun ProfileScreen(
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
+                currentRoute = "perfil", // <-- Agregado para activar el botón de Perfil
                 onProfileClick = { refreshTrigger++ },
                 onPublishClick = { onNavigate("selector") },
                 onEncuentranosClick = { onNavigate("encuentranos") },
@@ -1937,8 +1946,8 @@ fun SettingsScreen(
     Scaffold(
 
         bottomBar = {
-
             BottomNavigationBar(
+                currentRoute = "secundaria", // <-- Evita iluminar botones incorrectos al estar en subpantallas
                 onProfileClick = { onBack() },
                 onPublishClick = { onNavigate("selector") },
                 onEncuentranosClick = { onNavigate("encuentranos") },

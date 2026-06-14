@@ -40,13 +40,22 @@ fun MapScreen(
     onProfileClick: () -> Unit,
     onPublishClick: () -> Unit
 ) {
+    var pantallaActiva by remember { mutableStateOf("mapa") }
+
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
+                currentRoute = pantallaActiva, // <-- IMPRESCINDIBLE: Pasas la ruta actual para que sepa qué iluminar
                 onProfileClick = onProfileClick,
                 onPublishClick = onPublishClick,
-                onEncuentranosClick = { onNavigate("encuentranos") },
-                onMapaClick = {}
+                onEncuentranosClick = {
+                    pantallaActiva = "encuentranos" // Actualiza el estado local
+                    onNavigate("encuentranos")
+                },
+                onMapaClick = {
+                    pantallaActiva = "mapa" // <-- CORREGIDO: Actualiza el estado al hacer clic en el mapa
+                    onNavigate("mapa") // Si usas navegación formal, ejecuta su acción aquí
+                }
             )
         }
     ) { paddingValues ->

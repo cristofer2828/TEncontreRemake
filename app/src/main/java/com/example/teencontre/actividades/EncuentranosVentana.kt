@@ -126,14 +126,21 @@ fun EncuentranosScreen(
         if (gato) add("Gato")
         if (otro) add("Otro")
     }.joinToString(", ")
-
+    var pantallaActiva by remember { mutableStateOf("encuentranos") }
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
+                currentRoute = pantallaActiva, // Asegúrate de pasar siempre la ruta actual
                 onProfileClick = onProfileClick,
                 onPublishClick = onPublishClick,
-                onEncuentranosClick = { },
-                onMapaClick = { onNavigate("mapa") }
+                onEncuentranosClick = {
+                    pantallaActiva = "encuentranos" // Cambia el estado para iluminar el icono
+                    onNavigate("encuentranos")      // Ejecuta la navegación
+                },
+                onMapaClick = {
+                    pantallaActiva = "mapa"
+                    onNavigate("mapa")
+                }
             )
         }
     ) { paddingValues ->
