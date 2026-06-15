@@ -23,7 +23,7 @@ import coil.compose.AsyncImage
 import com.example.teencontre.data.model.Comentario
 import com.example.teencontre.data.remote.RetrofitClient
 import com.example.teencontre.viewmodel.PublicacionSeleccionadaViewModel
-import com.example.teencontre.sharedprefs.PreferenceManager // <-- Asegúrate de tener este import
+import com.example.teencontre.sharedprefs.PreferenceManager
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -42,9 +42,6 @@ fun DetalleAnuncioScreen(
     val nombreUsuarioReal = prefs.getUserName() ?: "Usuario Anónimo"
     val scope = rememberCoroutineScope()
 
-    // 1. Inicializamos PreferenceManager para obtener el usuario real
-
-
     // Lista reactiva vinculada directamente con Azure SQL
     val listaComentarios = remember { mutableStateListOf<Comentario>() }
 
@@ -59,7 +56,7 @@ fun DetalleAnuncioScreen(
 
                 val response = RetrofitClient.instance.obtenerComentarios(
                     idPublicacion = publicacion.id,
-                    tipoPublicacion = "PERDIDA"
+                    tipoPublicacion = publicacion.tipo ?: "PERDIDA" // Usa dinámicamente el tipo de publicación
                 )
 
                 if (response.isSuccessful) {
@@ -129,28 +126,38 @@ fun DetalleAnuncioScreen(
         )
 
         Text(
-            text = publicacion.tipo,
+            text = publicacion.tipo ?: "PUBLICACIÓN",
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Text(text = publicacion.descripcion)
+        Text(text = publicacion.descripcion ?: "Sin descripción.")
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // --- Datos Generales de la Mascota ---
         Text("Especie: ${publicacion.especie}")
         Text("Género: ${publicacion.genero}")
 
         publicacion.raza?.let { Text("Raza: $it") }
         publicacion.fecha?.let { Text("Fecha: $it") }
 
+        // CORRECCIÓN AQUÍ: Pinta el texto de la ubicación de forma visible en la ficha de datos
+        if (!publicacion.lugar.isNullOrBlank()) {
+            Text("📍 Ubicación: ${publicacion.lugar}", fontWeight = FontWeight.Medium)
+        } else {
+            Text("📍 Ubicación: No especificada", color = Color.Gray)
+        }
+
         Spacer(modifier = Modifier.height(12.dp))
 
+        // --- Datos de contacto ---
         publicacion.telefono?.let { Text("Teléfono: $it") }
         publicacion.correo?.let { Text("Correo: $it") }
 
+        // --- Datos específicos si es adopción ---
         if (publicacion.tipo == "ADOPCION") {
             Spacer(modifier = Modifier.height(12.dp))
             Text("Estado de salud", fontWeight = FontWeight.Bold)
@@ -165,12 +172,16 @@ fun DetalleAnuncioScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // CORRECCIÓN AQUÍ: Asegurar que el botón se muestre y pase correctamente la cadena al mapa
         if (!publicacion.lugar.isNullOrBlank()) {
             Button(
                 onClick = { onVerUbicacion(publicacion.lugar) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary
+                )
             ) {
-                Text("📍 Ver ubicación")
+                Text("📍 Ver ubicación en el Mapa")
             }
         }
 
@@ -212,17 +223,15 @@ fun DetalleAnuncioScreen(
                         val comentarioEnviado = nuevoComentarioTexto.trim()
                         nuevoComentarioTexto = ""
 
-                        // 2. Generamos la hora exacta de Perú al momento de hacer clic
                         val sdf = SimpleDateFormat("dd/MM/yyyy hh:mm a", Locale.getDefault())
                         sdf.timeZone = TimeZone.getTimeZone("America/Lima")
                         val horaPeru = sdf.format(Date())
 
-                        // POST: Inserta a través de tu archivo PHP en la base de datos Azure
                         scope.launch {
                             try {
                                 val comentarioDto = Comentario(
                                     id_publicacion = publicacion.id,
-                                    tipo_publicacion = publicacion.tipo,
+                                    tipo_publicacion = publicacion.tipo ?: "PERDIDA",
                                     nombre_usuario = nombreUsuarioReal,
                                     mensaje = comentarioEnviado,
                                     tiempo = horaPeru
@@ -231,15 +240,12 @@ fun DetalleAnuncioScreen(
                                 val response = RetrofitClient.instance.enviarComentario(comentarioDto)
 
                                 if (response.isSuccessful && response.body()?.success == true) {
-
                                     listaComentarios.add(0, comentarioDto)
-
                                     Toast.makeText(
                                         context,
                                         "Comentario enviado con éxito",
                                         Toast.LENGTH_SHORT
                                     ).show()
-
                                 } else {
                                     Toast.makeText(
                                         context,
