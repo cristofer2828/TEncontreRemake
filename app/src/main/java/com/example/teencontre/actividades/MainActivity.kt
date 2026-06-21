@@ -74,6 +74,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import com.example.teencontre.data.model.UpdateUserRequest
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import coil.compose.AsyncImage
 import com.example.teencontre.data.model.EliminarRequest
 import androidx.core.database.sqlite.transaction
@@ -533,6 +534,7 @@ fun RegisterScreen(
 
     var ruc by remember { mutableStateOf("") }
     var direccion by remember { mutableStateOf("") }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -540,7 +542,9 @@ fun RegisterScreen(
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(60.dp))
+        Spacer(modifier = Modifier.height(50.dp))
+
+
 
         // TÍTULO DINÁMICO
         Text(
@@ -702,21 +706,13 @@ fun RegisterScreen(
         // BOTÓN REGISTRAR
         Button(
             onClick = {
-
                 if(password != confirmPassword){
-
-                    Log.e(
-                        "REGISTER",
-                        "Las contraseñas no coinciden"
-                    )
-
+                    Log.e("REGISTER", "Las contraseñas no coinciden")
                     return@Button
                 }
 
                 CoroutineScope(Dispatchers.IO).launch {
-
                     try {
-
                         val request = RegisterRequest(
                             nombre = nombre,
                             telefono = telefono,
@@ -727,63 +723,51 @@ fun RegisterScreen(
                             esOrganizacion = isOrganization
                         )
 
-                        val response =
-                            RetrofitClient
-                                .instance
-                                .register(request)
+                        val response = RetrofitClient.instance.register(request)
 
                         withContext(Dispatchers.Main){
-
                             if(response.isSuccessful){
-
-                                Log.d(
-                                    "REGISTER",
-                                    "Registro exitoso"
-                                )
-
+                                Log.d("REGISTER", "Registro exitoso")
                                 onRegisterSuccess()
-
-                            }else {
-
-                                Log.e(
-                                    "REGISTER",
-                                    "Codigo HTTP: ${response.code()}"
-                                )
-
-                                Log.e(
-                                    "REGISTER",
-                                    "Respuesta: ${response.errorBody()?.string()}"
-                                )
+                            } else {
+                                Log.e("REGISTER", "Codigo HTTP: ${response.code()}")
+                                Log.e("REGISTER", "Respuesta: ${response.errorBody()?.string()}")
                             }
                         }
-
-                    }catch (e: Exception){
-
-                        Log.e(
-                            "REGISTER",
-                            "EXCEPTION",
-                            e
-                        )
+                    } catch (e: Exception){
+                        Log.e("REGISTER", "EXCEPTION", e)
                     }
                 }
             },
-
             enabled = acceptedTerms,
-
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-
             shape = RoundedCornerShape(12.dp),
-
             colors = ButtonDefaults.buttonColors(
                 containerColor = primaryPurple
             )
         ) {
-            Text(
-                "Registrar",
-                fontWeight = FontWeight.Bold
-            )
+            Text("Registrar", fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 2. TEXTO INFERIOR PARA VOLVER AL LOGIN
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "¿Ya tienes una cuenta?", fontSize = 14.sp)
+            TextButton(onClick = onBackToLogin) {
+                Text(
+                    text = "Inicia sesión",
+                    color = primaryPurple,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
