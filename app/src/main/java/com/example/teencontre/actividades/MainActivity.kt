@@ -1883,16 +1883,14 @@ fun SettingsScreen(
     onNavigate: (String) -> Unit,
     onLogout: () -> Unit
 ) {
-
     val context = LocalContext.current
     val prefs = remember { PreferenceManager(context) }
+    val usuario = remember { prefs.getLoggedUser() }
 
-    val usuario = remember {
-        prefs.getLoggedUser()
-    }
+    // Variable de estado para controlar la visibilidad del modal de cerrar sesión
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     var nombre by remember {
-
         mutableStateOf(
             when (usuario) {
                 is Usuario -> usuario.nombre
@@ -1903,74 +1901,86 @@ fun SettingsScreen(
     }
 
     var telefono by remember {
-
         mutableStateOf(
-            if (usuario is Usuario)
-                usuario.telefono
-            else
-                ""
+            if (usuario is Usuario) usuario.telefono else ""
         )
     }
 
     var correo by remember {
-
-        mutableStateOf(
-            usuario?.email ?: ""
-        )
+        mutableStateOf(usuario?.email ?: "")
     }
 
     var emailNotifications by remember {
         mutableStateOf(prefs.getNotifications())
     }
 
-    var passwordActual by remember {
-        mutableStateOf("")
-    }
+    var passwordActual by remember { mutableStateOf("") }
+    var passwordNueva by remember { mutableStateOf("") }
+    var passwordRepetir by remember { mutableStateOf("") }
 
-    var passwordNueva by remember {
-        mutableStateOf("")
-    }
+    var showPasswordActual by remember { mutableStateOf(false) }
+    var showPasswordNueva by remember { mutableStateOf(false) }
+    var showPasswordRepetir by remember { mutableStateOf(false) }
 
-    var passwordRepetir by remember {
-        mutableStateOf("")
-    }
-
-    var showPasswordActual by remember {
-        mutableStateOf(false)
-    }
-
-    var showPasswordNueva by remember {
-        mutableStateOf(false)
-    }
-
-    var showPasswordRepetir by remember {
-        mutableStateOf(false)
+    // --- MODAL DE CONFIRMACIÓN DE CERRAR SESIÓN ---
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = {
+                Text(
+                    text = "Cerrar sesión",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            },
+            text = {
+                Text(
+                    text = "¿Estás seguro de que deseas cerrar sesión?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutDialog = false
+                        // Aquí ejecutas la limpieza de sesión y navegación
+                        onLogout()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(text = "Confirmar") // <- Cambiado a "Confirmar"
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showLogoutDialog = false }
+                ) {
+                    Text(text = "Cancelar")
+                }
+            }
+        )
     }
 
     Scaffold(
-
         bottomBar = {
             BottomNavigationBar(
-                currentRoute = "secundaria", // <-- Evita iluminar botones incorrectos al estar en subpantallas
+                currentRoute = "secundaria",
                 onProfileClick = { onBack() },
                 onPublishClick = { onNavigate("selector") },
                 onEncuentranosClick = { onNavigate("encuentranos") },
                 onMapaClick = { onNavigate("mapa") }
             )
         },
-
         containerColor = MaterialTheme.colorScheme.background
-
     ) { paddingValues ->
 
         Column(
-
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState())
-
         ) {
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -1979,7 +1989,6 @@ fun SettingsScreen(
                 onClick = onBack,
                 contentPadding = PaddingValues(0.dp)
             ) {
-
                 Text(
                     "← Atrás",
                     color = MaterialTheme.colorScheme.primary
@@ -1995,22 +2004,14 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(
-
                 modifier = Modifier.fillMaxWidth(),
-
-                horizontalArrangement =
-                    Arrangement.SpaceBetween,
-
-                verticalAlignment =
-                    Alignment.CenterVertically
-
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-
                 Text(
                     "Modo oscuro",
                     fontSize = 20.sp
                 )
-
                 Switch(
                     checked = isDarkMode,
                     onCheckedChange = onDarkModeChange
@@ -2038,18 +2039,14 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             if (usuario is Usuario) {
-
                 LoginInput(
                     label = "Teléfono",
                     value = telefono,
                     onValueChange = {
-
-                        if (it.length <= 9)
-                            telefono = it
+                        if (it.length <= 9) telefono = it
                     },
                     placeholder = "999999999"
                 )
-
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
@@ -2065,21 +2062,15 @@ fun SettingsScreen(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-
                 Switch(
                     checked = emailNotifications,
                     onCheckedChange = {
-
                         emailNotifications = it
                         prefs.setNotifications(it)
                     }
                 )
-
                 Spacer(modifier = Modifier.width(8.dp))
-
-                Text(
-                    "Notificaciones por correo"
-                )
+                Text("Notificaciones por correo")
             }
 
             HorizontalDivider(
@@ -2124,139 +2115,65 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-
                 onClick = {
-
-                    val usuario =
-                        prefs.getLoggedUser()
-                            ?: return@Button
+                    val currentUsuario = prefs.getLoggedUser() ?: return@Button
 
                     CoroutineScope(Dispatchers.IO).launch {
-
                         try {
-
                             val request = UpdateUserRequest(
-
-                                id = usuario.id,
-
+                                id = currentUsuario.id,
                                 nombre = nombre,
-
-                                telefono =
-                                    if (usuario is Usuario)
-                                        telefono
-                                    else
-                                        null,
-
+                                telefono = if (currentUsuario is Usuario) telefono else null,
                                 email = correo,
-
-                                ruc =
-                                    if (usuario is Organizacion)
-                                        usuario.ruc
-                                    else
-                                        null,
-
-                                direccion =
-                                    if (usuario is Organizacion)
-                                        usuario.direccion
-                                    else
-                                        null
+                                ruc = if (currentUsuario is Organizacion) currentUsuario.ruc else null,
+                                direccion = if (currentUsuario is Organizacion) currentUsuario.direccion else null
                             )
 
-                            Log.d(
-                                "UPDATE_USER",
-                                "Enviando actualización..."
-                            )
-
-                            val response =
-                                RetrofitClient
-                                    .instance
-                                    .updateUser(request)
+                            Log.d("UPDATE_USER", "Enviando actualización...")
+                            val response = RetrofitClient.instance.updateUser(request)
 
                             withContext(Dispatchers.Main) {
-
                                 if (response.isSuccessful) {
+                                    Log.d("UPDATE_USER", "Actualización exitosa")
+                                    Toast.makeText(context, "Datos actualizados", Toast.LENGTH_SHORT).show()
 
-                                    Log.d(
-                                        "UPDATE_USER",
-                                        "Actualización exitosa"
-                                    )
-
-                                    Toast.makeText(
-                                        context,
-                                        "Datos actualizados",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-
-                                    // Actualizar SharedPreferences
-
-                                    if (usuario is Usuario) {
-
+                                    if (currentUsuario is Usuario) {
                                         prefs.saveLoggedUser(
-
-                                            usuario.copy(
+                                            currentUsuario.copy(
                                                 nombre = nombre,
                                                 telefono = telefono,
                                                 email = correo
                                             )
                                         )
-
-                                    } else if (usuario is Organizacion) {
-
+                                    } else if (currentUsuario is Organizacion) {
                                         prefs.saveLoggedUser(
-
-                                            usuario.copy(
+                                            currentUsuario.copy(
                                                 nombreOrg = nombre,
                                                 email = correo
                                             )
                                         )
                                     }
-
                                 } else {
-
-                                    Log.e(
-                                        "UPDATE_USER",
-                                        "Error ${response.code()}"
-                                    )
-
-                                    Toast.makeText(
-                                        context,
-                                        "Error al actualizar",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    Log.e("UPDATE_USER", "Error ${response.code()}")
+                                    Toast.makeText(context, "Error al actualizar", Toast.LENGTH_SHORT).show()
                                 }
                             }
-
                         } catch (e: Exception) {
-
                             withContext(Dispatchers.Main) {
-
-                                Log.e(
-                                    "UPDATE_USER",
-                                    e.message ?: "Error desconocido"
-                                )
-
-                                Toast.makeText(
-                                    context,
-                                    e.message ?: "Error desconocido",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                                Log.e("UPDATE_USER", e.message ?: "Error desconocido")
+                                Toast.makeText(context, e.message ?: "Error desconocido", Toast.LENGTH_LONG).show()
                             }
                         }
                     }
                 },
-
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-
                 shape = RoundedCornerShape(10.dp),
-
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
-
             ) {
-
                 Text(
                     text = "Aplicar",
                     fontWeight = FontWeight.Bold,
@@ -2266,26 +2183,20 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
+            // BOTÓN DE CERRAR SESIÓN MODIFICADO
             Button(
-
                 onClick = {
-
-                    prefs.clearSession()
-
-                    onLogout()
+                    // En lugar de borrar la sesión directo, activamos el modal
+                    showLogoutDialog = true
                 },
-
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = RoundedCornerShape(10.dp),
-
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.Red
                 )
-
             ) {
-
                 Text(
                     "Cerrar sesión",
                     color = Color.White
