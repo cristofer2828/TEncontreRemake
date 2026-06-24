@@ -10,6 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
     secondary = PurpleGrey80,
@@ -33,7 +34,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun TeEncontreTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false, // 🛠️ CAMBIADO A FALSE para evitar que rompa el renderizado del sistema
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -51,6 +52,4 @@ fun TeEncontreTheme(
         typography = Typography,
         content = content
     )
-
-
 }

@@ -256,15 +256,11 @@ fun EncuentranosScreen(
                     bottom = 90.dp
                 )
             ) {
-
                 items(publicacionesFiltradas) { publicacion ->
 
                     val colorEstado = when (publicacion.tipo) {
-
                         "PERDIDA" -> Color(0xFFE53935)
-
                         "ENCONTRADA" -> Color(0xFF43A047)
-
                         else -> Color(0xFF5E35B1)
                     }
 
@@ -273,135 +269,91 @@ fun EncuentranosScreen(
                             .fillMaxWidth()
                             .padding(vertical = 6.dp)
                             .clickable {
-
-                                publicacionSeleccionadaViewModel
-                                    .seleccionar(publicacion)
-
+                                publicacionSeleccionadaViewModel.seleccionar(publicacion)
                                 onNavigate("detalle_anuncio")
                             },
-
                         shape = RoundedCornerShape(20.dp),
-
+                        // 🛠️ FIX 1: Cambiado a surfaceVariant para que use el color dinámico del tema
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFF8F9FC)
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
                         ),
-
                         elevation = CardDefaults.cardElevation(
                             defaultElevation = 4.dp
                         )
                     ) {
-
                         Row(
                             modifier = Modifier.padding(12.dp)
                         ) {
-
                             AsyncImage(
                                 model = publicacion.foto,
                                 contentDescription = null,
-
                                 modifier = Modifier
                                     .size(100.dp)
-                                    .clip(
-                                        RoundedCornerShape(16.dp)
-                                    ),
-
+                                    .clip(RoundedCornerShape(16.dp)),
                                 contentScale = ContentScale.Crop,
-
-                                placeholder = painterResource(
-                                    R.drawable.logo_perros
-                                ),
-
-                                error = painterResource(
-                                    R.drawable.logo_perros
-                                )
+                                placeholder = painterResource(R.drawable.logo_perros),
+                                error = painterResource(R.drawable.logo_perros)
                             )
 
-                            Spacer(
-                                modifier = Modifier.width(12.dp)
-                            )
+                            Spacer(modifier = Modifier.width(12.dp))
 
                             Column(
                                 modifier = Modifier.weight(1f)
                             ) {
-
                                 Surface(
                                     shape = RoundedCornerShape(50),
                                     color = colorEstado.copy(alpha = 0.15f)
                                 ) {
-
                                     Text(
                                         text = publicacion.tipo,
-
                                         color = colorEstado,
-
                                         modifier = Modifier.padding(
                                             horizontal = 10.dp,
                                             vertical = 4.dp
                                         ),
-
                                         fontSize = 11.sp,
-
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
 
-                                Spacer(
-                                    modifier = Modifier.height(6.dp)
-                                )
+                                Spacer(modifier = Modifier.height(6.dp))
 
+                                // 🛠️ FIX 2: Agregado color onSurface para asegurar contraste en modo oscuro y claro
                                 Text(
-                                    text = publicacion.nombreMascota
-                                        ?: publicacion.especie,
-
+                                    text = publicacion.nombreMascota ?: publicacion.especie,
                                     fontSize = 18.sp,
-
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
 
-                                Spacer(
-                                    modifier = Modifier.height(4.dp)
-                                )
+                                Spacer(modifier = Modifier.height(4.dp))
 
+                                // 🛠️ FIX 3: Cambiado de Color.Gray a onSurfaceVariant para legibilidad
                                 Text(
                                     text = publicacion.descripcion,
-
                                     maxLines = 2,
-
                                     overflow = TextOverflow.Ellipsis,
-
                                     fontSize = 13.sp,
-
-                                    color = Color.Gray
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
 
-                                Spacer(
-                                    modifier = Modifier.height(8.dp)
-                                )
+                                Spacer(modifier = Modifier.height(8.dp))
 
+                                // 🛠️ FIX 4: Cambiado de Color.DarkGray a onSurfaceVariant
                                 Text(
-                                    text =
-                                        "📍 ${
-                                            publicacion.lugar
-                                                ?: "Sin ubicación"
-                                        }",
-
+                                    text = "📍 ${publicacion.lugar ?: "Sin ubicación"}",
                                     fontSize = 12.sp,
-
-                                    color = Color.DarkGray
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
 
                                 publicacion.fecha?.let {
+                                    Spacer(modifier = Modifier.height(4.dp))
 
-                                    Spacer(
-                                        modifier = Modifier.height(4.dp)
-                                    )
-
+                                    // 🛠️ FIX 5: Cambiado de Color.Gray a onSurfaceVariant
                                     Text(
                                         text = "📅 $it",
-
                                         fontSize = 11.sp,
-
-                                        color = Color.Gray
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }

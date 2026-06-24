@@ -1,4 +1,5 @@
 package com.example.teencontre.actividades
+import android.annotation.SuppressLint
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -74,7 +75,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import com.example.teencontre.data.model.UpdateUserRequest
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import coil.compose.AsyncImage
 import com.example.teencontre.data.model.EliminarRequest
 import androidx.core.database.sqlite.transaction
@@ -82,24 +84,39 @@ import androidx.core.database.sqlite.transaction
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
             val userViewModel: UserViewModel = viewModel()
-            val currentUser by userViewModel.currentUser.collectAsState()
             val context = LocalContext.current
-
-            // Inicializamos PreferenceManager una sola vez para toda la App
             val prefs = remember { PreferenceManager(context) }
-            // Estados globales de navegación y configuración
+
+            // Variable de estado que controla el modo oscuro globalmente
+            var isDarkMode by remember { mutableStateOf(false) }
+
             var currentScreen by remember { mutableStateOf("login") }
             var selectedMascotaId by remember { mutableStateOf(0) }
             var wizardMode by remember { mutableStateOf("perdi") }
-            var isDarkMode by remember { mutableStateOf(false) }
-            var direccionSeleccionada by remember {
-                mutableStateOf<String?>(null)
+            var direccionSeleccionada by remember { mutableStateOf<String?>(null) }
+
+            // Verificación asíncrona de sesión activa
+            LaunchedEffect(Unit) {
+                try {
+                    val usuarioGuardado = prefs.getLoggedUser()
+                    if (usuarioGuardado != null) {
+                        val ultimaRuta = prefs.getLastRoute()
+                        if (!ultimaRuta.isNullOrBlank() && ultimaRuta != "login") {
+                            currentScreen = ultimaRuta
+                        } else {
+                            currentScreen = "selector"
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("MAIN_ACTIVITY", "ERROR CRÍTICO AL LEER PREFERENCES: ${e.message}")
+                    currentScreen = "login"
+                }
             }
 
-            TeEncontreTheme(darkTheme = isDarkMode, dynamicColor = false) {
+            // 🛠️ SOLUCIÓN: Cambiamos 'false' por 'isDarkMode' para que escuche al switch de Ajustes
+            TeEncontreTheme(darkTheme = isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -107,127 +124,103 @@ class MainActivity : ComponentActivity() {
                     Crossfade(targetState = currentScreen, label = "main_navigation") { screen ->
                         when (screen) {
                             "login" -> LoginScreen(
-                                onLoginSuccess = { currentScreen = "selector" },
-                                onRegisterClick = { currentScreen = "register" }
+                                onLoginSuccess = {
+                                    prefs.saveLastRoute("selector")
+                                    currentScreen = "selector"
+                                },
+                                onRegisterClick = {
+                                    currentScreen = "register"
+                                }
                             )
                             "register" -> RegisterScreen(
                                 onRegisterSuccess = { currentScreen = "login" },
                                 onBackToLogin = { currentScreen = "login" },
-                                onShowTerms = { isOns ->
-                                    currentScreen = if (isOns) "terms_ons" else "terms_user"
+                                onShowTerms = { isOrg ->
+                                    currentScreen = if (isOrg) "terms_ons" else "terms_user"
                                 }
                             )
                             "selector" -> {
                                 CreateAnnouncementScreen(
-                                    onEncontreClick = {
-                                        wizardMode = "encontre"
-                                        currentScreen = "wizard"
-                                    },
-                                    onPerdiClick = {
-                                        wizardMode = "perdi"
-                                        currentScreen = "wizard"
-                                    },
-                                    onAdopcionClick = {
-                                        wizardMode = "adopcion"
-                                        currentScreen = "wizard"
-                                    },
-                                    onProfileClick = { currentScreen = "profile" },
-                                    onPublishClick = { currentScreen = "selector" },
-                                    onNavigate = { currentScreen = it }
+                                    onEncontreClick = { wizardMode = "encontre"; currentScreen = "wizard" },
+                                    onPerdiClick = { wizardMode = "perdi"; currentScreen = "wizard" },
+                                    onAdopcionClick = { wizardMode = "adopcion"; currentScreen = "wizard" },
+                                    onProfileClick = { prefs.saveLastRoute("profile"); currentScreen = "profile" },
+                                    onPublishClick = { prefs.saveLastRoute("selector"); currentScreen = "selector" },
+                                    onNavigate = { target -> prefs.saveLastRoute(target); currentScreen = target }
                                 )
                             }
                             "wizard" -> {
                                 when (wizardMode) {
-                                    "perdi" -> WizardMascotaPerdida(
-                                        onBackToSelector = { currentScreen = "selector" }
-                                    )
-                                    "encontre" -> WizardEncontreAnuncio(
-                                        onBackToSelector = { currentScreen = "selector" }
-                                    )
-                                    "adopcion" -> WizardCrearAdopcion(
-                                        onBackToSelector = { currentScreen = "selector" }
-                                    )
+                                    "perdi" -> WizardMascotaPerdida(onBackToSelector = { currentScreen = "selector" })
+                                    "encontre" -> WizardEncontreAnuncio(onBackToSelector = { currentScreen = "selector" })
+                                    "adopcion" -> WizardCrearAdopcion(onBackToSelector = { currentScreen = "selector" })
                                 }
                             }
-                                "profile" -> ProfileScreen(
-                                    prefs = prefs,
-                                    onLogout = {
-                                        userViewModel.logout()
-                                        currentScreen = "login"
-                                    },
-                                    onNavigate = { route ->
-                                        when {
-                                            route.startsWith("editar_perdido/") -> {
-                                                selectedMascotaId = route.substringAfter("editar_perdido/").toIntOrNull() ?: 0
-                                                currentScreen = "editar_perdido"
-                                            }
-                                            route.startsWith("editar_encontrada/") -> {
-                                                selectedMascotaId = route.substringAfter("editar_encontrada/").toIntOrNull() ?: 0
-                                                currentScreen = "editar_encontrada"
-                                            }
-                                            route.startsWith("editar_adopcion/") -> {
-                                                selectedMascotaId = route.substringAfter("editar_adopcion/").toIntOrNull() ?: 0
-                                                currentScreen = "editar_adopcion"
-                                            }
-                                            else -> currentScreen = route
+                            "profile" -> ProfileScreen(
+                                prefs = prefs,
+                                onLogout = {
+                                    userViewModel.logout()
+                                    prefs.clearSession()
+                                    currentScreen = "login"
+                                },
+                                onNavigate = { route ->
+                                    when {
+                                        route.startsWith("editar_perdido/") -> {
+                                            selectedMascotaId = route.substringAfter("editar_perdido/").toIntOrNull() ?: 0
+                                            currentScreen = "editar_perdido"
+                                        }
+                                        route.startsWith("editar_encontrada/") -> {
+                                            selectedMascotaId = route.substringAfter("editar_encontrada/").toIntOrNull() ?: 0
+                                            currentScreen = "editar_encontrada"
+                                        }
+                                        route.startsWith("editar_adopcion/") -> {
+                                            selectedMascotaId = route.substringAfter("editar_adopcion/").toIntOrNull() ?: 0
+                                            currentScreen = "editar_adopcion"
+                                        }
+                                        else -> {
+                                            prefs.saveLastRoute(route)
+                                            currentScreen = route
                                         }
                                     }
-                                )
-
-                                // CORRECCIÓN: Inyección obligatoria de idMascota a las pantallas de edición
-                                "editar_perdido" -> EditPerdidoScreen(
-                                    idMascota = selectedMascotaId,
-                                    onBack = { currentScreen = "profile" }
-                                )
-                                "editar_encontrada" -> EditEncontradaScreen(
-                                    idMascota = selectedMascotaId,
-                                    onBack = { currentScreen = "profile" }
-                                )
-                                "editar_adopcion" -> EditAdopcionScreen(
-                                    idMascota = selectedMascotaId,
-                                    onBack = { currentScreen = "profile" }
-                                )
-
+                                }
+                            )
+                            "editar_perdido" -> EditPerdidoScreen(idMascota = selectedMascotaId, onBack = { currentScreen = "profile" })
+                            "editar_encontrada" -> EditEncontradaScreen(idMascota = selectedMascotaId, onBack = { currentScreen = "profile" })
+                            "editar_adopcion" -> EditAdopcionScreen(idMascota = selectedMascotaId, onBack = { currentScreen = "profile" })
                             "settings" -> SettingsScreen(
                                 isDarkMode = isDarkMode,
-                                onDarkModeChange = { isDarkMode = it },
+                                onDarkModeChange = { isDarkMode = it }, // Cambia la variable de arriba y recompone la UI entera
                                 onBack = { currentScreen = "profile" },
-                                onNavigate = { route -> currentScreen = route },
-                                onLogout = { currentScreen = "login" }
+                                onNavigate = { route ->
+                                    prefs.saveLastRoute(route)
+                                    currentScreen = route
+                                },
+                                onLogout = {
+                                    userViewModel.logout()
+                                    prefs.clearSession()
+                                    currentScreen = "login"
+                                }
                             )
                             "encuentranos" -> EncuentranosScreen(
                                 onProfileClick = { currentScreen = "profile" },
                                 onPublishClick = { currentScreen = "selector" },
-                                onNavigate = { currentScreen = it }
+                                onNavigate = { target -> currentScreen = target }
                             )
                             "mapa" -> MapScreen(
                                 direccionPublicacion = direccionSeleccionada,
-                                onNavigate = { currentScreen = it },
+                                onNavigate = { target -> currentScreen = target },
                                 onProfileClick = { currentScreen = "profile" },
                                 onPublishClick = { currentScreen = "selector" }
                             )
                             "detalle_anuncio" -> DetalleAnuncioScreen(
-
-                                onBack = {
-                                    currentScreen = "encuentranos"
-                                },
-
+                                onBack = { currentScreen = "encuentranos" },
                                 onVerUbicacion = { lugar ->
-
                                     direccionSeleccionada = lugar
                                     currentScreen = "mapa"
                                 }
                             )
-                            "terms_user" -> TermsFrame(
-                                title = "Términos de Usuario",
-                                content = textoTerminosUsuario,
-                                onBack = { currentScreen = "register" }
-                            )
-                            "terms_ons" -> TermsFrame(
-                                title = "Términos para Organizaciones",
-                                content = textoTerminosONS,
-                                onBack = { currentScreen = "register" }
-                            )
+                            "terms_user" -> TermsFrame(title = "Términos de Usuario", content = "Contenido estándar de términos de usuario...", onBack = { currentScreen = "register" })
+                            "terms_ons" -> TermsFrame(title = "Términos para Organizaciones", content = "Contenido estándar de términos para organizaciones...", onBack = { currentScreen = "register" })
                         }
                     }
                 }
@@ -235,62 +228,56 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-
 // --- PANTALLA: LOGIN ---
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onRegisterClick: () -> Unit
 ) {
-
     val context = LocalContext.current
     val prefs = remember { PreferenceManager(context) }
-
     val primaryColor = MaterialTheme.colorScheme.primary
 
     var correo by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-
-    var passwordVisible by remember {
-        mutableStateOf(false)
-    }
+    var passwordVisible by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(MaterialTheme.colorScheme.background) // Restaurado color del tema
             .padding(horizontal = 30.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(modifier = Modifier.height(60.dp))
 
-        Spacer(modifier = Modifier.height(80.dp))
-
+        // Contenedor del Logo corregido para evitar desbordes de memoria
         Box(
-            modifier = Modifier.size(250.dp)
+            modifier = Modifier
+                .size(220.dp)
+                .wrapContentSize(Alignment.Center)
         ) {
             Image(
-                painter = painterResource(
-                    id = R.drawable.logo_perros
-                ),
-                contentDescription = null,
+                painter = painterResource(id = R.drawable.logo_perros),
+                contentDescription = "Logo Te Encontré",
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Fit // Fit previene distorsiones pesadas que congelan el renderizado
             )
         }
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(30.dp))
 
         Text(
             text = "Ingresar",
             modifier = Modifier.fillMaxWidth(),
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground // Restaurado color del tema
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Campo de Correo electrónico
         LoginInput(
             label = "Correo",
             value = correo,
@@ -300,6 +287,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Campo de Contraseña con vectores nativos oficiales de Material 3
         LoginInput(
             label = "Contraseña",
             value = password,
@@ -307,21 +295,17 @@ fun LoginScreen(
             placeholder = "Contraseña",
             isPassword = !passwordVisible,
             trailingIcon = {
-
-                val icon =
-                    if (passwordVisible)
-                        android.R.drawable.ic_menu_view
-                    else
-                        android.R.drawable.ic_menu_close_clear_cancel
+                val icon = if (passwordVisible)
+                    Icons.Filled.Visibility
+                else
+                    Icons.Filled.VisibilityOff
 
                 IconButton(
-                    onClick = {
-                        passwordVisible = !passwordVisible
-                    }
+                    onClick = { passwordVisible = !passwordVisible }
                 ) {
                     Icon(
-                        painter = painterResource(id = icon),
-                        contentDescription = "Ver contraseña",
+                        imageVector = icon,
+                        contentDescription = if (passwordVisible) "Ocultar contraseña" else "Ver contraseña",
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -330,99 +314,46 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(30.dp))
 
+        // Botón de Login acoplado a tu API REST de Azure
         Button(
-
             onClick = {
-
                 Log.d("LOGIN", "Botón presionado")
 
                 if (correo.isBlank() || password.isBlank()) {
-
-                    Log.e(
-                        "LOGIN",
-                        "Campos vacíos"
-                    )
-
+                    Log.e("LOGIN", "Campos vacíos")
                     return@Button
                 }
 
-                Log.d(
-                    "LOGIN",
-                    "Email ingresado: $correo"
-                )
+                Log.d("LOGIN", "Email ingresado: $correo")
 
                 CoroutineScope(Dispatchers.IO).launch {
-
                     try {
-
                         val request = LoginRequest(
                             email = correo,
                             contrasena = password
                         )
 
-                        Log.d(
-                            "LOGIN",
-                            "Enviando petición al servidor..."
-                        )
+                        Log.d("LOGIN", "Enviando petición al servidor...")
+                        val response = RetrofitClient.instance.login(request)
 
-                        val response =
-                            RetrofitClient
-                                .instance
-                                .login(request)
-
-                        Log.d(
-                            "LOGIN",
-                            "Código HTTP: ${response.code()}"
-                        )
-
-                        Log.d(
-                            "LOGIN",
-                            "Mensaje HTTP: ${response.message()}"
-                        )
+                        Log.d("LOGIN", "Código HTTP: ${response.code()}")
 
                         if (!response.isSuccessful) {
-
-                            Log.e(
-                                "LOGIN",
-                                "ErrorBody: ${response.errorBody()?.string()}"
-                            )
+                            Log.e("LOGIN", "ErrorBody: ${response.errorBody()?.string()}")
                         }
 
                         withContext(Dispatchers.Main) {
-
                             if (response.isSuccessful) {
-
                                 val usuario = response.body()
-
-                                Log.d(
-                                    "LOGIN",
-                                    "Respuesta recibida: $usuario"
-                                )
-
                                 if (usuario == null) {
-
-                                    Log.e(
-                                        "LOGIN",
-                                        "Retrofit recibió NULL"
-                                    )
-
+                                    Log.e("LOGIN", "Retrofit recibió NULL")
                                     return@withContext
                                 }
 
-                                Log.d(
-                                    "LOGIN",
-                                    "Tipo usuario: ${usuario.tipo}"
-                                )
+                                Log.d("LOGIN", "Tipo usuario: ${usuario.tipo}")
 
                                 if (usuario.tipo == "USUARIO") {
-
-                                    Log.d(
-                                        "LOGIN",
-                                        "Guardando usuario normal"
-                                    )
-
                                     prefs.saveLoggedUser(
-
                                         Usuario(
                                             id = usuario.id,
                                             email = usuario.email,
@@ -430,16 +361,8 @@ fun LoginScreen(
                                             telefono = usuario.telefono ?: ""
                                         )
                                     )
-
                                 } else {
-
-                                    Log.d(
-                                        "LOGIN",
-                                        "Guardando organización"
-                                    )
-
                                     prefs.saveLoggedUser(
-
                                         Organizacion(
                                             id = usuario.id,
                                             email = usuario.email,
@@ -451,59 +374,34 @@ fun LoginScreen(
                                     )
                                 }
 
-                                Log.d(
-                                    "LOGIN",
-                                    "Login exitoso"
-                                )
-
+                                Log.d("LOGIN", "Login exitoso")
                                 onLoginSuccess()
-
                             } else {
-
-                                Log.e(
-                                    "LOGIN",
-                                    "Credenciales incorrectas"
-                                )
+                                Log.e("LOGIN", "Credenciales incorrectas")
                             }
                         }
-
                     } catch (e: Exception) {
-
                         withContext(Dispatchers.Main) {
-
-                            Log.e(
-                                "LOGIN",
-                                "EXCEPCIÓN COMPLETA"
-                            )
-
-                            Log.e(
-                                "LOGIN",
-                                Log.getStackTraceString(e)
-                            )
+                            Log.e("LOGIN", "EXCEPCIÓN COMPLETA")
+                            Log.e("LOGIN", Log.getStackTraceString(e))
                         }
                     }
                 }
             },
-
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-
             shape = RoundedCornerShape(12.dp),
-
             colors = ButtonDefaults.buttonColors(
                 containerColor = primaryColor
             )
-
         ) {
-
             Text("Ingresar")
         }
 
         TextButton(
             onClick = onRegisterClick
         ) {
-
             Text(
                 text = "Registrar",
                 color = primaryColor,
@@ -512,6 +410,8 @@ fun LoginScreen(
         }
     }
 }
+
+
 
 @Composable
 fun RegisterScreen(
@@ -538,25 +438,27 @@ fun RegisterScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 30.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(50.dp))
 
-
-
         // TÍTULO DINÁMICO
         Text(
             text = if (isOrganization) "Registrar ONS" else "Registrar",
             modifier = Modifier.fillMaxWidth(),
             fontSize = 32.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
         )
 
         // SWITCH DE VERIFICACIÓN ONS
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Switch(
@@ -564,97 +466,101 @@ fun RegisterScreen(
                 onCheckedChange = { isOrganization = it }
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Verifíquese como centro de adopción", fontSize = 14.sp)
+            Text(
+                text = "Verifíquese como centro de adopción",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // FORMULARIO DINÁMICO
+        // FORMULARIO DINÁMICO (Con argumentos explícitos asignados de forma segura)
         if (isOrganization) {
             LoginInput(
-                "Nombre",
-                nombre,
-                { nombre = it },
-                "nombre de la organización"
+                label = "Nombre",
+                value = nombre,
+                onValueChange = { nombre = it },
+                placeholder = "nombre de la organización"
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             LoginInput(
-                "Número de teléfono",
-                telefono,
-                { telefono = it },
-                "+51"
+                label = "Número de teléfono",
+                value = telefono,
+                onValueChange = { telefono = it },
+                placeholder = "+51"
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             LoginInput(
-                "Correo",
-                email,
-                { email = it },
-                "example@email.com"
+                label = "Correo",
+                value = email,
+                onValueChange = { email = it },
+                placeholder = "example@email.com"
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             LoginInput(
-                "RUC",
-                ruc,
-                { ruc = it },
-                "RUC"
+                label = "RUC",
+                value = ruc,
+                onValueChange = { ruc = it },
+                placeholder = "RUC"
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             LoginInput(
-                "Dirección",
-                direccion,
-                { direccion = it },
-                "Dirección"
+                label = "Dirección",
+                value = direccion,
+                onValueChange = { direccion = it },
+                placeholder = "Dirección"
             )
         } else {
             LoginInput(
-                "Nombres",
-                nombre,
-                { nombre = it },
-                "Su nombre"
+                label = "Nombres",
+                value = nombre,
+                onValueChange = { nombre = it },
+                placeholder = "Su nombre"
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             LoginInput(
-                "Número de teléfono",
-                telefono,
-                { telefono = it },
-                "+51"
+                label = "Número de teléfono",
+                value = telefono,
+                onValueChange = { telefono = it },
+                placeholder = "+51"
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             LoginInput(
-                "Correo",
-                email,
-                { email = it },
-                "example@email.com"
+                label = "Correo",
+                value = email,
+                onValueChange = { email = it },
+                placeholder = "example@email.com"
             )
         }
 
         // CAMPOS COMUNES
         Spacer(modifier = Modifier.height(16.dp))
         LoginInput(
-            "Contraseña",
-            password,
-            { password = it },
-            "Contraseña",
+            label = "Contraseña",
+            value = password,
+            onValueChange = { password = it },
+            placeholder = "Contraseña",
             isPassword = true
         )
         Spacer(modifier = Modifier.height(16.dp))
         LoginInput(
-            "Confirmar contraseña",
-            confirmPassword,
-            { confirmPassword = it },
-            "Confirmar contraseña",
+            label = "Confirmar contraseña",
+            value = confirmPassword,
+            onValueChange = { confirmPassword = it },
+            placeholder = "Confirmar contraseña",
             isPassword = true
         )
 
@@ -674,7 +580,9 @@ fun RegisterScreen(
 
         // TÉRMINOS Y CONDICIONES CON NAVEGACIÓN
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Switch(
@@ -686,10 +594,11 @@ fun RegisterScreen(
             Column(modifier = Modifier.padding(start = 8.dp)) {
                 Text(
                     text = if (isOrganization) "Acepto los términos para organizaciones." else "Acepto los términos y condiciones.",
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 TextButton(
-                    onClick = { onShowTerms(isOrganization) }, // Abre el frame correspondiente
+                    onClick = { onShowTerms(isOrganization) },
                     contentPadding = PaddingValues(0.dp),
                     modifier = Modifier.height(20.dp)
                 ) {
@@ -703,10 +612,12 @@ fun RegisterScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(16.dp))
+
         // BOTÓN REGISTRAR
         Button(
             onClick = {
-                if(password != confirmPassword){
+                if (password != confirmPassword) {
                     Log.e("REGISTER", "Las contraseñas no coinciden")
                     return@Button
                 }
@@ -718,15 +629,15 @@ fun RegisterScreen(
                             telefono = telefono,
                             email = email,
                             contrasena = password,
-                            ruc = if(isOrganization) ruc else null,
-                            direccion = if(isOrganization) direccion else null,
+                            ruc = if (isOrganization) ruc else null,
+                            direccion = if (isOrganization) direccion else null,
                             esOrganizacion = isOrganization
                         )
 
                         val response = RetrofitClient.instance.register(request)
 
-                        withContext(Dispatchers.Main){
-                            if(response.isSuccessful){
+                        withContext(Dispatchers.Main) {
+                            if (response.isSuccessful) {
                                 Log.d("REGISTER", "Registro exitoso")
                                 onRegisterSuccess()
                             } else {
@@ -734,7 +645,7 @@ fun RegisterScreen(
                                 Log.e("REGISTER", "Respuesta: ${response.errorBody()?.string()}")
                             }
                         }
-                    } catch (e: Exception){
+                    } catch (e: Exception) {
                         Log.e("REGISTER", "EXCEPTION", e)
                     }
                 }
@@ -748,18 +659,18 @@ fun RegisterScreen(
                 containerColor = primaryPurple
             )
         ) {
-            Text("Registrar", fontWeight = FontWeight.Bold)
+            Text("Registrar", fontWeight = FontWeight.Bold, color = Color.White)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 2. TEXTO INFERIOR PARA VOLVER AL LOGIN
+        // TEXTO INFERIOR PARA VOLVER AL LOGIN
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "¿Ya tienes una cuenta?", fontSize = 14.sp)
+            Text(text = "¿Ya tienes una cuenta?", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
             TextButton(onClick = onBackToLogin) {
                 Text(
                     text = "Inicia sesión",

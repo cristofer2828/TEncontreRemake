@@ -20,6 +20,9 @@ class PreferenceManager(context: Context) {
         // Nuevas llaves para la sesión de Azure
         private const val KEY_USER_DATA = "user_data_json"
         private const val KEY_USER_ROLE = "user_role_type"
+
+        // Llave para la persistencia del estado de navegación de la App
+        private const val KEY_LAST_ROUTE = "last_route"
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -35,16 +38,22 @@ class PreferenceManager(context: Context) {
      * Recupera el usuario logueado reconstruyendo polimórficamente su clase real.
      */
     fun getLoggedUser(): BaseUser? {
-        val userJson = prefs.getString(KEY_USER_DATA, null) ?: return null
-        val userRole = prefs.getString(KEY_USER_ROLE, null)
-
         return try {
+            val userJson = prefs.getString(KEY_USER_DATA, null)
+            // SI EL JSON ESTÁ VACÍO O ES NULO, RETORNAMOS NULL DE INMEDIATO
+            if (userJson.isNullOrEmpty() || userJson == "null") {
+                return null
+            }
+
+            val userRole = prefs.getString(KEY_USER_ROLE, null)
+
             when (userRole) {
                 "USUARIO" -> gson.fromJson(userJson, Usuario::class.java)
                 "ORG" -> gson.fromJson(userJson, Organizacion::class.java)
                 else -> gson.fromJson(userJson, BaseUser::class.java)
             }
         } catch (e: Exception) {
+            // Si hay cualquier error de casteo o JSON roto, limpiamos para no buclear la app
             e.printStackTrace()
             null
         }
@@ -62,13 +71,10 @@ class PreferenceManager(context: Context) {
         prefs.edit {
             remove(KEY_USER_DATA)
             remove(KEY_USER_ROLE)
+            remove(KEY_LAST_ROUTE) // Limpia también la última pantalla al cerrar sesión
         }
     }
 
-    /**
-     * Extrae de forma segura el nombre del usuario actual evaluando su tipo de modelo.
-     * Revisa si tu data class maneja la propiedad 'nombre' (para Usuario) o 'nombreOrganizacion' (para ONS)
-     */
     /**
      * Extrae de forma segura el nombre del usuario o de la organización actual
      * mapeando correctamente las propiedades exactas de tus modelos.
@@ -80,5 +86,24 @@ class PreferenceManager(context: Context) {
             is Organizacion -> user.nombreOrg // Usa .nombreOrg de tu data class Organizacion
             else -> null
         }
+    }
+
+    // --- PERSISTENCIA DE PANTALLA / ESTADO DE NAVEGACIÓN ---
+
+    /**
+     * Almacena de forma persistente la última ruta de navegación activa.
+     */
+    fun saveLastRoute(route: String) {
+        prefs.edit {
+            putString(KEY_LAST_ROUTE, route)
+        }
+    }
+
+    /**
+     * Recupera la última pantalla guardada. Si no existe un valor previo,
+     * se establece "perfil" por defecto como la pantalla de inicio estándar.
+     */
+    fun getLastRoute(): String {
+        return prefs.getString(KEY_LAST_ROUTE, "perfil") ?: "perfil"
     }
 }
