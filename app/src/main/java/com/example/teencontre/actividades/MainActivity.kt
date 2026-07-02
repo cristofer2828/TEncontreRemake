@@ -1362,6 +1362,7 @@ fun ProfileScreen(
 
                 val listaA = mutableListOf<MascotasAdopcionModel>()
                 val cursorA = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_ADOPCION} WHERE ${DatabaseHelper.ADOPCION_USER_ID} = ?", arrayOf(idUserActual.toString()))
+
                 if (cursorA.moveToFirst()) {
                     do {
                         listaA.add(MascotasAdopcionModel(
@@ -1375,7 +1376,10 @@ fun ProfileScreen(
                             desparasitado = cursorA.getInt(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_DESPARASITADO)) == 1,
                             tamano = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TAMANO)),
                             temperamento = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TEMPERAMENTO)),
-                            foto = cursorA.getBlob(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_FOTO)),
+
+                            // ✅ CORREGIDO: Leemos la URL como String en lugar de binario blob
+                            foto = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_FOTO)) ?: "",
+
                             descripcion = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_DESCRIPCION)),
                             nombreOrganizacion = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ORGANIZACION)),
                             telefono = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TELEFONO)),
@@ -1390,6 +1394,7 @@ fun ProfileScreen(
                     listaEncontrados = listaE
                     listaAdopciones = listaA
                 }
+
             }
         }
     }

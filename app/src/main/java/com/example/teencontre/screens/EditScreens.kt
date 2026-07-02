@@ -487,14 +487,13 @@ fun EditAdopcionScreen(idMascota: Int, onBack: () -> Unit) {
                             desparasitado = desparasitado,
                             tamano = tamano,
                             temperamento = temperamento,
-                            foto = fotoBytes?.let {
-                                android.util.Base64.encodeToString(it, android.util.Base64.DEFAULT)
-                            },
+                            foto = "",
                             descripcion = descripcion,
                             nombreOrganizacion = nombreOrganizacion,
                             telefono = telefono,
                             correo = correo
                         )
+
 
                         coroutineScope.launch(Dispatchers.IO) {
 

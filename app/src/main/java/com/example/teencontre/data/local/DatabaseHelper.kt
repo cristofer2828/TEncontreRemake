@@ -272,7 +272,6 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             put(ADOPCION_DESPARASITADO, if (a.desparasitado) 1 else 0)
             put(ADOPCION_TAMANO, a.tamano)
             put(ADOPCION_TEMPERAMENTO, a.temperamento)
-            // CORREGIDO: Casteo seguro a ByteArray? para SQLite
             put(ADOPCION_FOTO, a.foto as? ByteArray)
             put(ADOPCION_DESCRIPCION, a.descripcion)
             put(ADOPCION_ORGANIZACION, a.nombreOrganizacion)
@@ -282,60 +281,6 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         return db.insert(TABLE_ADOPCION, null, values)
     }
 
-    fun getAllAdopciones(): List<MascotasAdopcionModel> {
-        val lista = mutableListOf<MascotasAdopcionModel>()
-        val db = this.readableDatabase
-        val cursor: Cursor = db.rawQuery("SELECT * FROM $TABLE_ADOPCION", null)
-        if (cursor.moveToFirst()) {
-            do {
-                val modelo = MascotasAdopcionModel(
-                    id = cursor.getInt(cursor.getColumnIndexOrThrow(ADOPCION_ID)),
-                    idUsuario = cursor.getInt(cursor.getColumnIndexOrThrow(ADOPCION_USER_ID)),
-                    especie = cursor.getString(cursor.getColumnIndexOrThrow(ADOPCION_ESPECIE)),
-                    genero = cursor.getString(cursor.getColumnIndexOrThrow(ADOPCION_GENERO)),
-                    raza = cursor.getString(cursor.getColumnIndexOrThrow(ADOPCION_RAZA)),
-                    vacunado = cursor.getInt(cursor.getColumnIndexOrThrow(ADOPCION_VACUNADO)) == 1,
-                    esterilizado = cursor.getInt(cursor.getColumnIndexOrThrow(ADOPCION_ESTERILIZADO)) == 1,
-                    desparasitado = cursor.getInt(cursor.getColumnIndexOrThrow(ADOPCION_DESPARASITADO)) == 1,
-                    tamano = cursor.getString(cursor.getColumnIndexOrThrow(ADOPCION_TAMANO)),
-                    temperamento = cursor.getString(cursor.getColumnIndexOrThrow(ADOPCION_TEMPERAMENTO)),
-                    foto = cursor.getBlob(cursor.getColumnIndexOrThrow(ADOPCION_FOTO)),
-                    descripcion = cursor.getString(cursor.getColumnIndexOrThrow(ADOPCION_DESCRIPCION)),
-                    nombreOrganizacion = cursor.getString(cursor.getColumnIndexOrThrow(ADOPCION_ORGANIZACION)),
-                    telefono = cursor.getString(cursor.getColumnIndexOrThrow(ADOPCION_TELEFONO)),
-                    correo = cursor.getString(cursor.getColumnIndexOrThrow(ADOPCION_CORREO))
-                )
-                lista.add(modelo)
-            } while (cursor.moveToNext())
-        }
-        cursor.close()
-        return lista
+
     }
 
-    fun updateAdopcion(a: MascotasAdopcionModel): Int {
-        val db = this.writableDatabase
-        val values = ContentValues().apply {
-            put(ADOPCION_USER_ID, a.idUsuario)
-            put(ADOPCION_ESPECIE, a.especie)
-            put(ADOPCION_GENERO, a.genero)
-            put(ADOPCION_RAZA, a.raza)
-            put(ADOPCION_VACUNADO, if (a.vacunado) 1 else 0)
-            put(ADOPCION_ESTERILIZADO, if (a.esterilizado) 1 else 0)
-            put(ADOPCION_DESPARASITADO, if (a.desparasitado) 1 else 0)
-            put(ADOPCION_TAMANO, a.tamano)
-            put(ADOPCION_TEMPERAMENTO, a.temperamento)
-            // CORREGIDO: Casteo seguro a ByteArray? para SQLite
-            if (a.foto != null) put(ADOPCION_FOTO, a.foto as? ByteArray)
-            put(ADOPCION_DESCRIPCION, a.descripcion)
-            put(ADOPCION_ORGANIZACION, a.nombreOrganizacion)
-            put(ADOPCION_TELEFONO, a.telefono)
-            put(ADOPCION_CORREO, a.correo)
-        }
-        return db.update(TABLE_ADOPCION, values, "$ADOPCION_ID = ?", arrayOf(a.id.toString()))
-    }
-
-    fun deleteAdopcion(id: Int): Int {
-        val db = this.writableDatabase
-        return db.delete(TABLE_ADOPCION, "$ADOPCION_ID = ?", arrayOf(id.toString()))
-    }
-}

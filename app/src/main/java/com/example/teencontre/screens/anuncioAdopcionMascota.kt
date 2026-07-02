@@ -186,6 +186,12 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
 
                                             withContext(Dispatchers.Main) {
                                                 if (response.isSuccessful && response.body()?.success == true) {
+
+                                                    // ✅ ADAPTACIÓN SQLITE: Convertimos tus bytes intactos a String en línea para tu nuevo modelo
+                                                    val fotoStringParaModel = fotoBytesParaSQLite?.let { bytes ->
+                                                        android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                                                    } ?: ""
+
                                                     val mascotaAdopcionLocal = MascotasAdopcionModel(
                                                         id = 0,
                                                         idUsuario = usuario?.id ?: 0,
@@ -197,7 +203,10 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                                         desparasitado = desparasitado,
                                                         tamano = tamano,
                                                         temperamento = temperamento,
-                                                        foto = fotoBytesParaSQLite,
+
+                                                        // ✅ ASIGNACIÓN: Pasamos la conversión en texto en vez del ByteArray directo
+                                                        foto = fotoStringParaModel,
+
                                                         descripcion = descripcionCompleta,
                                                         nombreOrganizacion = if (contactName.isNotBlank()) contactName else "Particular",
                                                         telefono = contactPhone,
@@ -222,6 +231,7 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                     }
                                 }
                             },
+
                             onBack = { if (step > 1) step-- else onBackToSelector() }
                         )
                     }
@@ -482,12 +492,24 @@ fun PasoFotoAdopcion(
     photos: List<Uri>,
     onPhotosChanged: (List<Uri>) -> Unit
 ) {
+    // 1. Obtenemos el contexto requerido por la función 'comprimirImagenGaleria'
+    val context = LocalContext.current
+
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
-        if (uris.isNotEmpty()) onPhotosChanged(photos + uris)
+        if (uris.isNotEmpty()) {
+            // 2. COMPRESIÓN: Interceptamos las URIs originales y las procesamos en la caché local
+            val procesadas = uris.mapNotNull { uri ->
+                comprimirImagenGaleria(context, uri)
+            }
+            if (procesadas.isNotEmpty()) {
+                onPhotosChanged(photos + procesadas)
+            }
+        }
     }
 
+    // Mantenemos la columna limpia sin agregarle verticalScroll para no romper tu Wizard padre
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Fotos de la mascota",
@@ -513,12 +535,14 @@ fun PasoFotoAdopcion(
         Spacer(modifier = Modifier.height(8.dp))
 
         // --- Botón Añadir Foto estilizado con FigmaBlue ---
+        val boxShape = RoundedCornerShape(8.dp)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp)
-                .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(8.dp))
-                .border(1.dp, FigmaBlue.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer, boxShape)
+                .border(1.dp, FigmaBlue.copy(alpha = 0.4f), boxShape)
+                .clip(boxShape) // Mantiene el ripple dentro de las esquinas redondeadas
                 .clickable { galleryLauncher.launch("image/*") },
             contentAlignment = Alignment.Center
         ) {
@@ -530,11 +554,16 @@ fun PasoFotoAdopcion(
             )
         }
 
+        // --- RESPONSIVIDAD: Carrusel de fotos debajo del botón ---
         if (photos.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Fijar la altura aquí es la clave para que sea responsivo dentro de scrolls padres
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(96.dp) // ← CLAVE RESPONSIVA: Evita errores de medición infinita
             ) {
                 items(photos) { uri ->
                     Box(
@@ -993,7 +1022,10 @@ fun NavigationButtonsAdopcion(
     onBack: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding() // ← SOLUCIÓN DEFINITIVA: Sube el botón por encima de la barra de Android
+            .padding(bottom = 12.dp), // Espacio extra de seguridad para que no quede pegado al ras
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -1006,7 +1038,9 @@ fun NavigationButtonsAdopcion(
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
             ),
-            modifier = Modifier.fillMaxWidth().height(50.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
             Text(

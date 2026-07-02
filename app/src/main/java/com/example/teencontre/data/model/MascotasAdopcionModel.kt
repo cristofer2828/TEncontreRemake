@@ -16,8 +16,9 @@ data class MascotasAdopcionModel(
 
     @SerializedName("tamano") val tamano: String = "",
     @SerializedName("temperamento") val temperamento: String = "",
-    @SerializedName("Foto")
-    val foto: Any? = null,
+    // Cambiar "Foto" por "foto" en minúscula y Any? por String
+    @SerializedName("foto")
+    val foto: String = "",
     @SerializedName("descripcion") val descripcion: String = "",
     @SerializedName("nombreOrganizacion") val nombreOrganizacion: String = "",
     @SerializedName("telefono") val telefono: String = "",

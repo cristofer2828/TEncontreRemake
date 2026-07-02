@@ -443,13 +443,23 @@ fun SelectorDobleEncontrada(
 
 @Composable
 fun PasoFotoEncontrada(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) {
+    // 1. Necesitamos el contexto para que funcione la función de compresión
+    val context = LocalContext.current
+
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
         if (uris.isNotEmpty()) {
-            onPhotosChanged(photos + uris)
+            // 2. Procesamos y comprimimos cada foto antes de enviarla al callback
+            val procesadas = uris.mapNotNull { uri ->
+                comprimirImagenGaleria(context, uri)
+            }
+            if (procesadas.isNotEmpty()) {
+                onPhotosChanged(photos + procesadas)
+            }
         }
     }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Fotografía de la mascota",
@@ -535,6 +545,7 @@ fun PasoFotoEncontrada(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) 
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -827,13 +838,19 @@ fun PasoContactoEncontrada(
     onEmail: (String) -> Unit,
     onAccepted: (Boolean) -> Unit
 ) {
-    // Para simplificar la validación en el Wizard de 2 Checkboxes de manera sincronizada y evitar bloqueos,
-    // usamos dos estados locales pero vinculados directamente con el callback de salida.
     var terminosAceptados by remember { mutableStateOf(accepted) }
     var datosPublicosAceptados by remember { mutableStateOf(accepted) }
     var mostrarModalTerminos by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    // Habilitamos el estado de scroll para el formulario principal
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState) // <-- Hace que todo el formulario sea deslizable
+            .padding(bottom = 16.dp) // Espaciado preventivo al final del scroll
+    ) {
         Text(
             text = "Información de contacto",
             fontWeight = FontWeight.Bold,
@@ -883,7 +900,7 @@ fun PasoContactoEncontrada(
                 .padding(vertical = 4.dp),
             shape = RoundedCornerShape(8.dp),
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), // Filtro de teclado numérico
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = MaterialTheme.colorScheme.onBackground,
                 unfocusedTextColor = MaterialTheme.colorScheme.onBackground
@@ -906,7 +923,7 @@ fun PasoContactoEncontrada(
                 .padding(vertical = 4.dp),
             shape = RoundedCornerShape(8.dp),
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), // Filtro de teclado de Email
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = MaterialTheme.colorScheme.onBackground,
                 unfocusedTextColor = MaterialTheme.colorScheme.onBackground
@@ -970,7 +987,7 @@ fun PasoContactoEncontrada(
         }
     }
 
-    // --- VENTANA EMERGENTE CENTRADA (DIALOG CLÁSICO) ---
+    // --- VENTANA EMERGENTE CENTRADA (DIALOG CLÁSICO RESPONSIVO) ---
     if (mostrarModalTerminos) {
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { mostrarModalTerminos = false }
@@ -1013,9 +1030,13 @@ fun PasoContactoEncontrada(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
+                    // Añadimos scroll también al contenedor de textos legales por si la pantalla es muy pequeña
                     Column(
                         verticalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false) // Limita el tamaño del diálogo para que no se salga de los bordes físicos
+                            .verticalScroll(rememberScrollState())
                     ) {
                         Text(
                             text = "1. USO RESPONSABLE: Esta plataforma es exclusivamente para facilitar la adopción y el reencuentro de mascotas.",
