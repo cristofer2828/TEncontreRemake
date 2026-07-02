@@ -55,10 +55,7 @@ private val FigmaBlue = Color(0xFF2196F3)
 @Composable
 fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
     val context = LocalContext.current
-    val prefs = remember {
-        PreferenceManager(context)
-    }
-
+    val prefs = remember { PreferenceManager(context) }
     val usuario = prefs.getLoggedUser()
 
     val sharedPreferences = remember { context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE) }
@@ -69,8 +66,9 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
     val totalSteps = 5
 
     // --- ESTADOS DE CONTROL DE INTERFAZ ---
-    var showPhotoDialog by remember { mutableStateOf(false) }
-    var showDescDialog by remember { mutableStateOf(false) }
+    // Ya no requerimos los diálogos de omisión si los pasos son obligatorios
+    // var showPhotoDialog by remember { mutableStateOf(false) }
+    // var showDescDialog by remember { mutableStateOf(false) }
 
     // --- ESTADOS DE DATOS DE LA MASCOTA ---
     var nombreMascota by remember { mutableStateOf("") }
@@ -96,6 +94,22 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
 
     val apiService = RetrofitClient.instance
 
+    // =================================================================
+    // VALIDACIÓN DINÁMICA DEL PASO ACTUAL
+    // =================================================================
+    val isCurrentStepValid = remember(
+        step, edadMascota, selectedPhotos, vacunado, desparasitado, esterilizado,
+        description, contactName, contactPhone, contactEmail, acceptedTerms
+    ) {
+        when (step) {
+            1 -> edadMascota.isNotBlank() // Obligatorio poner la fecha/edad aproximada
+            2 -> selectedPhotos.isNotEmpty() // Obligatorio por lo menos una foto
+            3 -> vacunado // Requisito: que esté vacunado (Switch en true)
+            4 -> description.isNotBlank() // Obligatoria la descripción
+            5 -> contactName.isNotBlank() && contactPhone.isNotBlank() && contactEmail.isNotBlank() && acceptedTerms
+            else -> true
+        }
+    }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
@@ -112,33 +126,29 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                     ) {
                         NavigationButtonsAdopcion(
                             step = step,
-                            accepted = acceptedTerms,
+                            isButtonEnabled = isCurrentStepValid, // Pasamos la validación calculada arriba
                             onNext = {
                                 if (step < totalSteps) {
                                     step++
                                 } else {
-                                    // Lanzamiento de la Corrutina para subir la Adopción en formato Multipart
+                                    // Lanzamiento de la Corrutina para subir la Adopción
                                     coroutineScope.launch(Dispatchers.IO) {
                                         try {
                                             val textType = "text/plain".toMediaTypeOrNull()
                                             val imageType = "image/jpeg".toMediaTypeOrNull()
 
-                                            // Extraer ID del usuario
                                             val idUsuarioReal = (usuario?.id ?: 0).toString()
 
-                                            // Unificar edad con la descripción
                                             val descripcionCompleta = buildString {
                                                 if (edadMascota.isNotBlank()) append("Edad aproximada: $edadMascota. ")
                                                 if (description.isNotBlank()) append(description)
                                             }.trim()
 
-                                            // 1. Preparación de los RequestBody individuales para los textos y booleanos
                                             val idUsuarioPart = RequestBody.create(textType, idUsuarioReal)
                                             val especiePart = RequestBody.create(textType, petType)
                                             val generoPart = RequestBody.create(textType, gender)
                                             val razaPart = RequestBody.create(textType, if (razaMascota.isNotBlank()) razaMascota else "Mestizo")
 
-                                            // Los booleanos se mandan como string ("true"/"false") y el PHP los convierte a BIT (1/0)
                                             val vacunadoPart = RequestBody.create(textType, vacunado.toString())
                                             val esterilizadoPart = RequestBody.create(textType, esterilizado.toString())
                                             val desparasitadoPart = RequestBody.create(textType, desparasitado.toString())
@@ -150,7 +160,6 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                             val telefonoPart = RequestBody.create(textType, contactPhone)
                                             val correoPart = RequestBody.create(textType, contactEmail)
 
-                                            // 2. Procesar la imagen seleccionada como Multipart binario real
                                             var fotoPart: MultipartBody.Part? = null
                                             var fotoBytesParaSQLite: ByteArray? = null
 
@@ -158,7 +167,7 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                                 try {
                                                     context.contentResolver.openInputStream(selectedPhotos[0])?.use { inputStream ->
                                                         val bytes = inputStream.readBytes()
-                                                        fotoBytesParaSQLite = bytes // Guardamos copia para el SQLite local
+                                                        fotoBytesParaSQLite = bytes
 
                                                         val requestFile = RequestBody.create(imageType, bytes)
                                                         fotoPart = MultipartBody.Part.createFormData("foto", "mascota_adopcion.jpg", requestFile)
@@ -168,7 +177,6 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                                 }
                                             }
 
-                                            // 3. Ejecutar llamada al servicio web de Azure
                                             val response = apiService.registrarMascotaAdopcion(
                                                 idUsuarioPart, especiePart, generoPart, razaPart,
                                                 vacunadoPart, esterilizadoPart, desparasitadoPart,
@@ -178,7 +186,6 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
 
                                             withContext(Dispatchers.Main) {
                                                 if (response.isSuccessful && response.body()?.success == true) {
-                                                    // Opcional: Persistencia local en tu SQLite si usas tu modelo antiguo
                                                     val mascotaAdopcionLocal = MascotasAdopcionModel(
                                                         id = 0,
                                                         idUsuario = usuario?.id ?: 0,
@@ -215,11 +222,7 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                     }
                                 }
                             },
-                            onBack = { if (step > 1) step-- else onBackToSelector() },
-                            onOmit = {
-                                if (step == 2) showPhotoDialog = true
-                                if (step == 4) showDescDialog = true
-                            }
+                            onBack = { if (step > 1) step-- else onBackToSelector() }
                         )
                     }
                 }
@@ -325,13 +328,7 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
         }
     }
 
-    // --- DIÁLOGOS EMERGENTES DE OMISIÓN ---
-    if (showPhotoDialog) {
-        OmitirFotoAdopcionDialog(onDismiss = { showPhotoDialog = false }, onConfirm = { showPhotoDialog = false; step++ })
-    }
-    if (showDescDialog) {
-        OmitirDescAdopcionDialog(onDismiss = { showDescDialog = false }, onConfirm = { showDescDialog = false; step++ })
-    }
+
 }
 
 // =================================================================
@@ -991,21 +988,18 @@ fun PantallaHechoAdopcion(onFinished: () -> Unit) {
 @Composable
 fun NavigationButtonsAdopcion(
     step: Int,
-    accepted: Boolean,
+    isButtonEnabled: Boolean, // Ahora recibe directamente si cumple los requisitos
     onNext: () -> Unit,
-    onBack: () -> Unit,
-    onOmit: () -> Unit
+    onBack: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        val botonHabilitado = step != 5 || accepted
-
         Button(
             onClick = onNext,
-            enabled = botonHabilitado,
+            enabled = isButtonEnabled, // Controla el estado del botón aquí
             colors = ButtonDefaults.buttonColors(
                 containerColor = FigmaBlue,
                 contentColor = Color.White,
@@ -1020,23 +1014,6 @@ fun NavigationButtonsAdopcion(
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
-        }
-
-        if (step == 2 || step == 4) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .clickable { onOmit() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Omitir",
-                    color = FigmaBlue,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-            }
         }
     }
 }

@@ -238,9 +238,21 @@ fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
             // --- BOTONES DE NAVEGACIÓN ---
             if (step in 1..totalSteps) {
                 Spacer(modifier = Modifier.height(40.dp))
+
+                // === AÑADIDO: Lógica para validar que los pasos obligatorios no estén vacíos ===
+                val isCurrentStepValid = when (step) {
+                    1 -> nombreMascota.isNotBlank()
+                    2 -> selectedPhotos.isNotEmpty() // 'Siguiente' solo se activa si hay fotos. Si no, debe usar 'Omitir'.
+                    3 -> selectedLatLng != null && location.isNotBlank() && location != "Obteniendo ubicación..."
+                    4 -> description.isNotBlank()    // 'Siguiente' solo se activa si escribe algo. Si no, debe usar 'Omitir'.
+                    5 -> contactName.isNotBlank() && contactPhone.isNotBlank() && contactEmail.isNotBlank()
+                    else -> false
+                }
+
                 NavigationButtons(
                     step = step,
                     accepted = acceptedTerms,
+                    isNextEnabled = isCurrentStepValid, // <=== AÑADIDO
                     onNext = {
                         if (step == 3) {
                             showConfirmarDireccionSheet = true
@@ -456,22 +468,22 @@ fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
 fun NavigationButtons(
     step: Int,
     accepted: Boolean,
+    isNextEnabled: Boolean, // <--- Nueva variable de validación
     onNext: () -> Unit,
     onBack: () -> Unit,
     onOmit: () -> Unit
 ) {
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-
-        val botonHabilitado = step != 5 || accepted
+        // El botón se habilita si pasa la validación del paso actual Y (si es el paso 5) se aceptaron los términos
+        val botonHabilitado = isNextEnabled && (step != 5 || accepted)
 
         Button(
             onClick = onNext,
-            enabled = botonHabilitado,
+            enabled = botonHabilitado, // <--- Usamos la lógica combinada
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF5E4BCE),
                 contentColor = Color.White
@@ -809,7 +821,21 @@ fun PasoUbicacion(
     }
 
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = fecha)
+        // Usamos rememberDatePickerState pasándole una implementación de SelectableDates
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = fecha,
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    // Solo permite fechas menores o iguales a la fecha/hora actual
+                    return utcTimeMillis <= System.currentTimeMillis()
+                }
+
+                override fun isSelectableYear(year: Int): Boolean {
+                    // Opcional: puedes limitar los años si lo deseas
+                    return year <= java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                }
+            }
+        )
 
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },

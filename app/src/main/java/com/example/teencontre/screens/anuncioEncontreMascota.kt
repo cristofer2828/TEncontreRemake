@@ -227,9 +227,21 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
             // --- BOTONES DE NAVEGACIÓN ---
             if (step in 1..totalSteps) {
                 Spacer(modifier = Modifier.height(40.dp))
+
+                // === Añadido: Validación estricta por cada paso ===
+                val isCurrentStepValid = when (step) {
+                    1 -> true // Encontrados no tiene un campo de texto obligatorio en paso 1 (raza es opcional)
+                    2 -> selectedPhotos.isNotEmpty() // 'Siguiente' requiere foto. Si no, debe usar 'Omitir'
+                    3 -> ubicacionLatLng != null && location.isNotBlank() && location != "Obteniendo ubicación..." // Requiere mapa y dirección texto
+                    4 -> description.isNotBlank()    // 'Siguiente' requiere texto. Si no, debe usar 'Omitir'
+                    5 -> contactName.isNotBlank() && contactPhone.isNotBlank() && contactEmail.isNotBlank() // Contacto obligatorio
+                    else -> false
+                }
+
                 NavigationButtonsEncontrada(
                     step = step,
                     accepted = acceptedTerms,
+                    isNextEnabled = isCurrentStepValid,
                     onNext = {
                         if (step == 3) {
                             showLocationConfirmSheet = true
@@ -663,8 +675,21 @@ fun PasoUbicacionEncontrada(
 
     // --- DIÁLOGO PICKER DE FECHA ---
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = fecha)
+        // Usamos rememberDatePickerState pasándole una implementación de SelectableDates
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = fecha,
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    // Solo permite fechas menores o iguales a la fecha/hora actual
+                    return utcTimeMillis <= System.currentTimeMillis()
+                }
 
+                override fun isSelectableYear(year: Int): Boolean {
+                    // Opcional: puedes limitar los años si lo deseas
+                    return year <= java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                }
+            }
+        )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
@@ -1075,6 +1100,7 @@ fun PantallaHechoEncontrada(onFinished: () -> Unit) {
 fun NavigationButtonsEncontrada(
     step: Int,
     accepted: Boolean,
+    isNextEnabled: Boolean, // <--- Añadido para controlar el flujo por pasos
     onNext: () -> Unit,
     onBack: () -> Unit,
     onOmit: () -> Unit
@@ -1084,7 +1110,8 @@ fun NavigationButtonsEncontrada(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        val botonHabilitado = step != 5 || accepted
+        // Combina que el paso sea válido y que se acepten los términos en el paso 5
+        val botonHabilitado = isNextEnabled && (step != 5 || accepted)
 
         Button(
             onClick = onNext,
