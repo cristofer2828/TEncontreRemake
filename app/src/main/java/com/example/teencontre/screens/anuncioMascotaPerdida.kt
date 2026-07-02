@@ -64,7 +64,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.CoroutineScope
 import androidx.compose.ui.platform.LocalLocale
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
+//imports para fotos
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.compose.runtime.Composable
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.util.UUID
 
 @SuppressLint("CoroutineCreationDuringComposition")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -468,7 +476,7 @@ fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
 fun NavigationButtons(
     step: Int,
     accepted: Boolean,
-    isNextEnabled: Boolean, // <--- Nueva variable de validación
+    isNextEnabled: Boolean,
     onNext: () -> Unit,
     onBack: () -> Unit,
     onOmit: () -> Unit
@@ -478,35 +486,32 @@ fun NavigationButtons(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // El botón se habilita si pasa la validación del paso actual Y (si es el paso 5) se aceptaron los términos
+        // Lógica combinada de habilitación
         val botonHabilitado = isNextEnabled && (step != 5 || accepted)
 
         Button(
             onClick = onNext,
-            enabled = botonHabilitado, // <--- Usamos la lógica combinada
+            enabled = botonHabilitado,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF5E4BCE),
-                contentColor = Color.White
+                containerColor = Color(0xFF5E4BCE),       // Color cuando está activo
+                contentColor = Color.White,
+                disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), // Gris estándar M3
+                disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)    // Texto gris tenue M3
             ),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
-
             Text(
-                text = if (step == 5)
-                    "Publicar un anuncio"
-                else
-                    "Siguiente",
+                text = if (step == 5) "Publicar un anuncio" else "Siguiente",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
         }
 
         if (step == 2 || step == 4) {
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(4.dp)) // Ajustado para mantener consistencia visual con M3
 
             Button(
                 onClick = onOmit,
@@ -519,12 +524,11 @@ fun NavigationButtons(
                     .height(48.dp)
                     .border(
                         1.dp,
-                        MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), // Copia idéntica a tus inputs
                         RoundedCornerShape(12.dp)
                     ),
                 elevation = ButtonDefaults.buttonElevation(0.dp)
             ) {
-
                 Text(
                     text = "Omitir",
                     fontWeight = FontWeight.SemiBold,
@@ -541,7 +545,13 @@ fun PasoMascota(
     onNombre: (String) -> Unit, onRaza: (String) -> Unit,
     onType: (String) -> Unit, onGen: (String) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    // 1. Añadimos el modificador verticalScroll con rememberScrollState()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()) // <-- Esto activa el Scroll vertical
+            .padding(bottom = 16.dp) // Espacio extra al final para que no pegue con el borde de la pantalla
+    ) {
         Text("¿Qué mascota es?", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onBackground)
         Text("Por favor, indique el tipo y sexo de su mascota", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
 
@@ -603,13 +613,22 @@ fun SelectorDoble(label: String, opciones: Pair<String, String>, seleccionado: S
 
 @Composable
 fun PasoFoto(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) {
+    val context = LocalContext.current
+
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
         if (uris.isNotEmpty()) {
-            onPhotosChanged(photos + uris)
+            // Procesamos y comprimimos cada foto antes de añadirla a la lista
+            val procesadas = uris.mapNotNull { uri ->
+                comprimirImagenGaleria(context, uri)
+            }
+            if (procesadas.isNotEmpty()) {
+                onPhotosChanged(photos + procesadas)
+            }
         }
     }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "¿Como se ve?",
@@ -692,6 +711,51 @@ fun PasoFoto(photos: List<Uri>, onPhotosChanged: (List<Uri>) -> Unit) {
     }
 }
 
+/**
+ * Toma la URI original de la galería, reduce sus dimensiones si excede los 1024px,
+ * la comprime al 80% en formato JPEG y la guarda en el almacenamiento interno de la app.
+ * Retorna la nueva URI del archivo optimizado.
+ */
+fun comprimirImagenGaleria(context: Context, uri: Uri): Uri? {
+    return try {
+        val contentResolver = context.contentResolver
+
+        // 1. Obtener dimensiones originales sin cargar la foto completa a la RAM
+        var inputStream: InputStream? = contentResolver.openInputStream(uri)
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeStream(inputStream, null, options)
+        inputStream?.close()
+
+        // 2. Calcular escala de reducción (Max 1024px)
+        val MAX_SIZE = 1024f
+        var scale = 1
+        if (options.outHeight > MAX_SIZE || options.outWidth > MAX_SIZE) {
+            val base = Math.max(options.outHeight, options.outWidth).toDouble()
+            scale = Math.pow(2.0, Math.round(Math.log(MAX_SIZE / base) / Math.log(0.5)).toInt().toDouble()).toInt()
+        }
+
+        // 3. Decodificar la imagen real aplicando la escala calculada
+        val decodeOptions = BitmapFactory.Options().apply { inSampleSize = scale }
+        inputStream = contentResolver.openInputStream(uri)
+        val bitmap = BitmapFactory.decodeStream(inputStream, null, decodeOptions)
+        inputStream?.close()
+
+        // 4. Guardar el bitmap optimizado en la caché local segura de la aplicación
+        val file = File(context.cacheDir, "mascota_${UUID.randomUUID()}.jpg")
+        val outputStream = FileOutputStream(file)
+
+        // Comprime al 80% de calidad JPEG (Reduce drásticamente los MB a KB)
+        bitmap?.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+        outputStream.flush()
+        outputStream.close()
+
+        // Retornamos la URI del archivo local optimizado
+        Uri.fromFile(file)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun PasoUbicacion(
@@ -954,7 +1018,15 @@ fun PasoContacto(
     var terminosAceptados by remember { mutableStateOf(false) }
     var mostrarModalTerminos by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    // Estado de scroll para el formulario principal (Evita que el teclado tape los campos)
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState) // <- CLAVE 1: Permite deslizar cuando el teclado se abre
+            .padding(bottom = 16.dp)
+    ) {
         Text(
             "Información de contacto",
             fontWeight = FontWeight.Bold,
@@ -1029,7 +1101,12 @@ fun PasoContacto(
         Spacer(Modifier.height(20.dp))
 
         var datosPublicosAceptados by remember { mutableStateOf(aceptado) }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+
+        // Fila optimizada con Weight para evitar desbordamiento horizontal
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Checkbox(
                 checked = datosPublicosAceptados,
                 onCheckedChange = { nuevoValor ->
@@ -1041,13 +1118,19 @@ fun PasoContacto(
                 text = "Acepto que mis datos de contacto sean públicos para la resolución del caso.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp)
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .weight(1f) // <- CLAVE 2: Fuerza al texto a adaptarse al espacio restante sin empujar la pantalla
             )
         }
 
         Spacer(Modifier.height(8.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        // Fila de términos optimizada
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Checkbox(
                 checked = terminosAceptados,
                 onCheckedChange = { nuevoValor ->
@@ -1055,9 +1138,13 @@ fun PasoContacto(
                     onAceptado(datosPublicosAceptados && nuevoValor)
                 }
             )
+
+            // FlowRow o una sola fila con Wrap permite que los textos no se corten
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 4.dp)
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .weight(1f) // <- Mantiene alineado el bloque de texto
             ) {
                 Text(
                     text = "Acepto los ",
@@ -1075,22 +1162,30 @@ fun PasoContacto(
                     imageVector = Icons.Default.Info,
                     contentDescription = "Ver términos",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(start = 4.dp).size(15.dp).clickable { mostrarModalTerminos = true }
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .size(15.dp)
+                        .clickable { mostrarModalTerminos = true }
                 )
             }
         }
     }
 
-    // --- DIÁLOGO DE TÉRMINOS ---
+    // --- DIÁLOGO DE TÉRMINOS RESPONSIVO ---
     if (mostrarModalTerminos) {
         androidx.compose.ui.window.Dialog(onDismissRequest = { mostrarModalTerminos = false }) {
             Surface(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.8f) // <- CLAVE 3: Limita la altura máxima en pantallas pequeñas para que no ocupe todo el alto
+                    .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surface
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Row(
@@ -1118,9 +1213,14 @@ fun PasoContacto(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
+                    // Contenedor interno con Scroll independiente para la lista de términos
+                    val scrollTerminos = rememberScrollState()
                     Column(
                         verticalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false) // <- Permite crecer dinámicamente o scrollear si supera el tamaño
+                            .verticalScroll(scrollTerminos) // Un scroll interno evita que los textos queden fuera
                     ) {
                         Text(
                             "1. USO RESPONSABLE: Esta plataforma es exclusivamente para facilitar la adopción y el reencuentro de mascotas.",
@@ -1136,12 +1236,6 @@ fun PasoContacto(
                         )
                         Text(
                             "3. PROHIBICIONES: Está estrictamente prohibido lucrar o vender animales a través de esta aplicación.",
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 18.sp
-                        )
-                        Text(
-                            "4. COMUNIDAD: Nos reservamos el derecho de eliminar cuentas que realicen reportes falsos.",
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
@@ -1343,22 +1437,26 @@ fun SeleccionarUbicacionScreen(
 ) {
     var puntoSeleccionado by remember { mutableStateOf<LatLng?>(null) }
 
+    // fillMaxSize() ya se encarga de ocupar toda la pantalla, incluyendo zonas del sistema
     Box(modifier = Modifier.fillMaxSize()) {
         MapaSelector(
             ubicacionInicial = ubicacionInicial,
             onPuntoSeleccionado = { puntoSeleccionado = it }
         )
 
+        // Botón Volver - Ajustado con statusBarsPadding para no chocar con la barra de notificaciones superior
         Button(
             onClick = onBack,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(top = 45.dp, start = 16.dp),
+                .statusBarsPadding() // <- Evita la barra de notificaciones/notch de arriba
+                .padding(top = 16.dp, start = 16.dp),
             shape = RoundedCornerShape(20.dp)
         ) {
             Text("Volver")
         }
 
+        // Botón Confirmar - Ajustado para esquivar los botones del sistema de abajo
         Button(
             onClick = {
                 puntoSeleccionado?.let { onConfirmar(it) }
@@ -1366,7 +1464,8 @@ fun SeleccionarUbicacionScreen(
             enabled = puntoSeleccionado != null,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(24.dp)
+                .navigationBarsPadding() // <- ESTA ES LA CLAVE: Empuja el botón por encima de la barra de navegación
+                .padding(bottom = 16.dp, start = 24.dp, end = 24.dp) // Reducido el padding inferior ya que navigationBarsPadding añade el espacio justo
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(12.dp)

@@ -989,14 +989,16 @@ fun BottomNavigationBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(backgroundColor)
+            // 📌 .navigationBarsPadding() añade automáticamente un margen abajo
+            // equivalente al grosor de los botones virtuales o la línea de gestos de Android
+            .navigationBarsPadding()
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically
     ) {
         NavigationItem(
-            icon = android.R.drawable.ic_menu_add, // Reemplázalo por tu pack de iconos si usas personalizados
+            icon = android.R.drawable.ic_menu_add,
             label = "Publicar",
-            // IMPORTANTE: Asegúrate de que el String "publicar" coincida con lo que guarda tu variable en esa sección
             color = if (currentRoute == "publicar") selectedColor else unselectedColor,
             onClick = onPublishClick
         )

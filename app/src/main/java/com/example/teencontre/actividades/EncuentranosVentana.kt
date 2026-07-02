@@ -75,67 +75,41 @@ fun EncuentranosScreen(
     var perro by remember { mutableStateOf(false) }
     var gato by remember { mutableStateOf(false) }
     var otro by remember { mutableStateOf(false) }
+
     val publicacionesFiltradas = publicaciones.filter { publicacion ->
+        val coincideEstado = (!desaparecido && !encontrado && !adopcion)
+                || (desaparecido && publicacion.tipo == "PERDIDA")
+                || (encontrado && publicacion.tipo == "ENCONTRADA")
+                || (adopcion && publicacion.tipo == "ADOPCION")
 
-        val coincideEstado =
-
-            (!desaparecido && !encontrado && !adopcion)
-
-                    ||
-
-                    (desaparecido && publicacion.tipo == "PERDIDA")
-
-                    ||
-
-                    (encontrado && publicacion.tipo == "ENCONTRADA")
-
-                    ||
-
-                    (adopcion && publicacion.tipo == "ADOPCION")
-
-        val coincideTipo =
-
-            (!perro && !gato && !otro)
-
-                    ||
-
-                    (perro && publicacion.especie.equals("Perro", true))
-
-                    ||
-
-                    (gato && publicacion.especie.equals("Gato", true))
-
-                    ||
-
-                    (
-                            otro &&
-                                    !publicacion.especie.equals("Perro", true)
-                                    &&
-                                    !publicacion.especie.equals("Gato", true)
-                            )
+        val coincideTipo = (!perro && !gato && !otro)
+                || (perro && publicacion.especie.equals("Perro", true))
+                || (gato && publicacion.especie.equals("Gato", true))
+                || (otro && !publicacion.especie.equals("Perro", true) && !publicacion.especie.equals("Gato", true))
 
         coincideEstado && coincideTipo
     }
-    val filtrosSeleccionados = buildList {
 
+    val filtrosSeleccionados = buildList {
         if (desaparecido) add("Desaparecido")
         if (encontrado) add("Encontrado")
         if (adopcion) add("Adopción")
-
         if (perro) add("Perro")
         if (gato) add("Gato")
         if (otro) add("Otro")
     }.joinToString(", ")
+
     var pantallaActiva by remember { mutableStateOf("encuentranos") }
+
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
-                currentRoute = pantallaActiva, // Asegúrate de pasar siempre la ruta actual
+                currentRoute = pantallaActiva,
                 onProfileClick = onProfileClick,
                 onPublishClick = onPublishClick,
                 onEncuentranosClick = {
-                    pantallaActiva = "encuentranos" // Cambia el estado para iluminar el icono
-                    onNavigate("encuentranos")      // Ejecuta la navegación
+                    pantallaActiva = "encuentranos"
+                    onNavigate("encuentranos")
                 },
                 onMapaClick = {
                     pantallaActiva = "mapa"
@@ -144,11 +118,16 @@ fun EncuentranosScreen(
             )
         }
     ) { paddingValues ->
-
+        // Modificado la columna principal para que consuma de manera inteligente los paddingValues del Scaffold
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(
+                    top = paddingValues.calculateTopPadding(),
+                    start = 0.dp,
+                    end = 0.dp,
+                    bottom = 0.dp // Dejamos el bottom en 0 aquí porque se lo daremos al LazyColumn
+                )
                 .background(MaterialTheme.colorScheme.background)
         ) {
             Row(
@@ -158,7 +137,7 @@ fun EncuentranosScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Mascotas Reportadas",
+                    text = "Publicaciones",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
@@ -178,21 +157,14 @@ fun EncuentranosScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-
                     Text("Filtros: ")
-
                     Text(
                         text = filtrosSeleccionados.ifEmpty { "No seleccionado" },
-
                         color = Color(0xFF6C63FF),
-
                         modifier = Modifier.weight(1f),
-
                         maxLines = 1,
-
                         overflow = TextOverflow.Ellipsis
                     )
-
                     Icon(
                         imageVector = if (mostrarFiltros)
                             Icons.Default.KeyboardArrowUp
@@ -205,7 +177,6 @@ fun EncuentranosScreen(
 
             // CONTENIDO DESPLEGABLE
             if (mostrarFiltros) {
-
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -213,9 +184,7 @@ fun EncuentranosScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-
                         Text("Estado de la mascota", fontWeight = FontWeight.Bold)
-
                         FiltroItem("Desaparecido", desaparecido) { desaparecido = it }
                         FiltroItem("Encontrado", encontrado) { encontrado = it }
                         FiltroItem("Busca un nuevo dueño.", adopcion) { adopcion = it }
@@ -223,7 +192,6 @@ fun EncuentranosScreen(
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                         Text("Tipo", fontWeight = FontWeight.Bold)
-
                         FiltroItem("Perro", perro) { perro = it }
                         FiltroItem("Gato", gato) { gato = it }
 
@@ -239,25 +207,28 @@ fun EncuentranosScreen(
                             ) {
                                 Text("Aplicar Filtros")
                             }
-
                         }
                     }
                 }
             }
-            val publicacionSeleccionadaViewModel: PublicacionSeleccionadaViewModel =
-                viewModel()
 
+            val publicacionSeleccionadaViewModel: PublicacionSeleccionadaViewModel = viewModel()
+
+            // 🛠️ SOLUCIÓN RESPONSIVA:
+            // 1. Agregado .weight(1f) para que se expanda dinámicamente ocupando solo el espacio disponible.
+            // 2. Modificado el 'bottom' del contentPadding para que tome el tamaño real e inteligente que ocupa la BottomNavigationBar más un espacio extra opcional (16.dp)
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 contentPadding = PaddingValues(
                     start = 8.dp,
                     end = 8.dp,
                     top = 4.dp,
-                    bottom = 90.dp
+                    bottom = paddingValues.calculateBottomPadding() + 16.dp
                 )
             ) {
                 items(publicacionesFiltradas) { publicacion ->
-
                     val colorEstado = when (publicacion.tipo) {
                         "PERDIDA" -> Color(0xFFE53935)
                         "ENCONTRADA" -> Color(0xFF43A047)
@@ -273,7 +244,6 @@ fun EncuentranosScreen(
                                 onNavigate("detalle_anuncio")
                             },
                         shape = RoundedCornerShape(20.dp),
-                        // 🛠️ FIX 1: Cambiado a surfaceVariant para que use el color dinámico del tema
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         ),
@@ -281,9 +251,7 @@ fun EncuentranosScreen(
                             defaultElevation = 4.dp
                         )
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp)
-                        ) {
+                        Row(modifier = Modifier.padding(12.dp)) {
                             AsyncImage(
                                 model = publicacion.foto,
                                 contentDescription = null,
@@ -297,9 +265,7 @@ fun EncuentranosScreen(
 
                             Spacer(modifier = Modifier.width(12.dp))
 
-                            Column(
-                                modifier = Modifier.weight(1f)
-                            ) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Surface(
                                     shape = RoundedCornerShape(50),
                                     color = colorEstado.copy(alpha = 0.15f)
@@ -307,10 +273,7 @@ fun EncuentranosScreen(
                                     Text(
                                         text = publicacion.tipo,
                                         color = colorEstado,
-                                        modifier = Modifier.padding(
-                                            horizontal = 10.dp,
-                                            vertical = 4.dp
-                                        ),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -318,7 +281,6 @@ fun EncuentranosScreen(
 
                                 Spacer(modifier = Modifier.height(6.dp))
 
-                                // 🛠️ FIX 2: Agregado color onSurface para asegurar contraste en modo oscuro y claro
                                 Text(
                                     text = publicacion.nombreMascota ?: publicacion.especie,
                                     fontSize = 18.sp,
@@ -328,7 +290,6 @@ fun EncuentranosScreen(
 
                                 Spacer(modifier = Modifier.height(4.dp))
 
-                                // 🛠️ FIX 3: Cambiado de Color.Gray a onSurfaceVariant para legibilidad
                                 Text(
                                     text = publicacion.descripcion,
                                     maxLines = 2,
@@ -339,7 +300,6 @@ fun EncuentranosScreen(
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                // 🛠️ FIX 4: Cambiado de Color.DarkGray a onSurfaceVariant
                                 Text(
                                     text = "📍 ${publicacion.lugar ?: "Sin ubicación"}",
                                     fontSize = 12.sp,
@@ -348,8 +308,6 @@ fun EncuentranosScreen(
 
                                 publicacion.fecha?.let {
                                     Spacer(modifier = Modifier.height(4.dp))
-
-                                    // 🛠️ FIX 5: Cambiado de Color.Gray a onSurfaceVariant
                                     Text(
                                         text = "📅 $it",
                                         fontSize = 11.sp,
@@ -361,8 +319,6 @@ fun EncuentranosScreen(
                     }
                 }
             }
-
-
         }
     }
 }
