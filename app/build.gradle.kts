@@ -78,4 +78,6 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    //para cambiar la barra de nav a modos
+    implementation("androidx.activity:activity-compose:1.9.0")
 }

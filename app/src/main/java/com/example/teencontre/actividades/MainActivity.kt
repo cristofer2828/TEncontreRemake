@@ -84,13 +84,18 @@ import androidx.core.database.sqlite.transaction
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Cambia la línea roja por esto:
+        val window = this.window
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+
         setContent {
             val userViewModel: UserViewModel = viewModel()
             val context = LocalContext.current
             val prefs = remember { PreferenceManager(context) }
 
             // Variable de estado que controla el modo oscuro globalmente
-            var isDarkMode by remember { mutableStateOf(false) }
+            var isDarkMode by remember { mutableStateOf(prefs.isDarkModeEnabled()) }
+
 
             var currentScreen by remember { mutableStateOf("login") }
             var selectedMascotaId by remember { mutableStateOf(0) }
@@ -98,16 +103,19 @@ class MainActivity : ComponentActivity() {
             var direccionSeleccionada by remember { mutableStateOf<String?>(null) }
 
             // Verificación asíncrona de sesión activa
+            // Verificación asíncrona de sesión activa
             LaunchedEffect(Unit) {
                 try {
                     val usuarioGuardado = prefs.getLoggedUser()
                     if (usuarioGuardado != null) {
-                        val ultimaRuta = prefs.getLastRoute()
-                        if (!ultimaRuta.isNullOrBlank() && ultimaRuta != "login") {
-                            currentScreen = ultimaRuta
-                        } else {
-                            currentScreen = "selector"
-                        }
+                        // 🛠️ SOLUCIÓN: Eliminamos la verificación de 'ultimaRuta' para que no te mande a Encuentranos u otra pantalla
+                        currentScreen = "selector"
+
+                        // Sincronizamos las preferencias para que el historial interno también empiece ahí
+                        prefs.saveLastRoute("selector")
+                    } else {
+                        // Si no hay un usuario guardado, lo mandamos al login
+                        currentScreen = "login"
                     }
                 } catch (e: Exception) {
                     Log.e("MAIN_ACTIVITY", "ERROR CRÍTICO AL LEER PREFERENCES: ${e.message}")
@@ -115,7 +123,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // 🛠️ SOLUCIÓN: Cambiamos 'false' por 'isDarkMode' para que escuche al switch de Ajustes
+
+
             TeEncontreTheme(darkTheme = isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -189,7 +198,10 @@ class MainActivity : ComponentActivity() {
                             "editar_adopcion" -> EditAdopcionScreen(idMascota = selectedMascotaId, onBack = { currentScreen = "profile" })
                             "settings" -> SettingsScreen(
                                 isDarkMode = isDarkMode,
-                                onDarkModeChange = { isDarkMode = it }, // Cambia la variable de arriba y recompone la UI entera
+                                onDarkModeChange = { isChecked ->
+                                    isDarkMode = isChecked // Cambia el tema visual en tiempo real
+                                    prefs.setDarkModeEnabled(isChecked) // Lo guarda de forma permanente en el disco
+                                }, // Cambia la variable de arriba y recompone la UI entera
                                 onBack = { currentScreen = "profile" },
                                 onNavigate = { route ->
                                     prefs.saveLastRoute(route)
@@ -2155,5 +2167,4 @@ fun SettingsScreen(
         }
     }
 }
-
 

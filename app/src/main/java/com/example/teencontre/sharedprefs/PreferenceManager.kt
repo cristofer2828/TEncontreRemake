@@ -17,6 +17,9 @@ class PreferenceManager(context: Context) {
         private const val KEY_EMAIL = "email"
         private const val KEY_NOTIFICATIONS = "notifications"
 
+        // Llave modo oscuro
+        private const val KEY_DARK_MODE = "dark_mode_enabled"
+
         // Nuevas llaves para la sesión de Azure
         private const val KEY_USER_DATA = "user_data_json"
         private const val KEY_USER_ROLE = "user_role_type"
@@ -31,6 +34,10 @@ class PreferenceManager(context: Context) {
     // --- NOTIFICACIONES ---
     fun getNotifications(): Boolean = prefs.getBoolean(KEY_NOTIFICATIONS, true)
     fun setNotifications(enabled: Boolean) { prefs.edit { putBoolean(KEY_NOTIFICATIONS, enabled) } }
+
+    // --- MODO OSCURO ---
+    fun isDarkModeEnabled(): Boolean = prefs.getBoolean(KEY_DARK_MODE, false)
+    fun setDarkModeEnabled(enabled: Boolean) { prefs.edit { putBoolean(KEY_DARK_MODE, enabled) } }
 
     // --- GESTIÓN DE SESIÓN DE USUARIOS (AZURE) ---
 

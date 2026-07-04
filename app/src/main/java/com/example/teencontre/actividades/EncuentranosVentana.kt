@@ -230,9 +230,9 @@ fun EncuentranosScreen(
             ) {
                 items(publicacionesFiltradas) { publicacion ->
                     val colorEstado = when (publicacion.tipo) {
-                        "PERDIDA" -> Color(0xFFE53935)
+                        "PERDIDA" -> Color(0xFF5E35B1)
                         "ENCONTRADA" -> Color(0xFF43A047)
-                        else -> Color(0xFF5E35B1)
+                        else -> Color(0xFF4FC3F7)
                     }
 
                     Card(
