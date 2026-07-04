@@ -71,6 +71,7 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import android.graphics.BitmapFactory
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.graphics.asImageBitmap
 import com.example.teencontre.data.model.UpdateUserRequest
 import androidx.compose.foundation.lazy.LazyColumn
@@ -84,7 +85,6 @@ import androidx.core.database.sqlite.transaction
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Cambia la línea roja por esto:
         val window = this.window
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -93,28 +93,19 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current
             val prefs = remember { PreferenceManager(context) }
 
-            // Variable de estado que controla el modo oscuro globalmente
             var isDarkMode by remember { mutableStateOf(prefs.isDarkModeEnabled()) }
-
-
             var currentScreen by remember { mutableStateOf("login") }
             var selectedMascotaId by remember { mutableStateOf(0) }
             var wizardMode by remember { mutableStateOf("perdi") }
             var direccionSeleccionada by remember { mutableStateOf<String?>(null) }
 
-            // Verificación asíncrona de sesión activa
-            // Verificación asíncrona de sesión activa
             LaunchedEffect(Unit) {
                 try {
                     val usuarioGuardado = prefs.getLoggedUser()
                     if (usuarioGuardado != null) {
-                        // 🛠️ SOLUCIÓN: Eliminamos la verificación de 'ultimaRuta' para que no te mande a Encuentranos u otra pantalla
                         currentScreen = "selector"
-
-                        // Sincronizamos las preferencias para que el historial interno también empiece ahí
                         prefs.saveLastRoute("selector")
                     } else {
-                        // Si no hay un usuario guardado, lo mandamos al login
                         currentScreen = "login"
                     }
                 } catch (e: Exception) {
@@ -123,7 +114,28 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-
+            // 🛠️ CONTROL DEL BOTÓN DE ATRÁS (BACK HANDLER)
+            // Se activa únicamente si la pantalla actual NO es "login" ni "selector"
+            BackHandler(enabled = currentScreen != "login" && currentScreen != "selector") {
+                when (currentScreen) {
+                    "register", "terms_user", "terms_ons" -> {
+                        currentScreen = "login"
+                    }
+                    "wizard", "profile", "encuentranos", "mapa" -> {
+                        currentScreen = "selector"
+                    }
+                    "editar_perdido", "editar_encontrada", "editar_adopcion", "settings" -> {
+                        currentScreen = "profile"
+                    }
+                    "detalle_anuncio" -> {
+                        currentScreen = "encuentranos"
+                    }
+                    else -> {
+                        // Por seguridad, si cae en otra pantalla secundaria vuelve al menú principal
+                        currentScreen = "selector"
+                    }
+                }
+            }
 
             TeEncontreTheme(darkTheme = isDarkMode) {
                 Surface(
@@ -199,9 +211,9 @@ class MainActivity : ComponentActivity() {
                             "settings" -> SettingsScreen(
                                 isDarkMode = isDarkMode,
                                 onDarkModeChange = { isChecked ->
-                                    isDarkMode = isChecked // Cambia el tema visual en tiempo real
-                                    prefs.setDarkModeEnabled(isChecked) // Lo guarda de forma permanente en el disco
-                                }, // Cambia la variable de arriba y recompone la UI entera
+                                    isDarkMode = isChecked
+                                    prefs.setDarkModeEnabled(isChecked)
+                                },
                                 onBack = { currentScreen = "profile" },
                                 onNavigate = { route ->
                                     prefs.saveLastRoute(route)
