@@ -69,6 +69,9 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.runtime.Composable
+import com.example.teencontre.data.model.BaseUser
+import com.example.teencontre.data.model.Organizacion
+import com.example.teencontre.data.model.Usuario
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -102,9 +105,35 @@ fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
     var selectedDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var selectedPhotos by remember { mutableStateOf<List<Uri>>(emptyList()) }
     val scope = rememberCoroutineScope()
-    var contactName by remember { mutableStateOf(sharedPreferences.getString("userName", "") ?: "") }
-    var contactPhone by remember { mutableStateOf(sharedPreferences.getString("userPhone", "") ?: "") }
-    var contactEmail by remember { mutableStateOf(sharedPreferences.getString("userEmail", "") ?: "") }
+
+    val usuarioActual = usuario as? BaseUser
+
+// Extraemos el Nombre (mapeando según la clase)
+    var contactName by remember(usuarioActual) {
+        mutableStateOf(
+            when (usuarioActual) {
+                is Usuario -> usuarioActual.nombre
+                is Organizacion -> usuarioActual.nombreOrg
+                else -> ""
+            }
+        )
+    }
+
+// 🔥 ¡AHORA SÍ! Ambos tienen teléfono asignado directamente
+    var contactPhone by remember(usuarioActual) {
+        mutableStateOf(
+            when (usuarioActual) {
+                is Usuario -> usuarioActual.telefono
+                is Organizacion -> usuarioActual.telefono // 👈 Ahora jalará el teléfono de la ORG
+                else -> ""
+            }
+        )
+    }
+
+// Ambos heredan el email de BaseUser
+    var contactEmail by remember(usuarioActual) {
+        mutableStateOf(usuarioActual?.email ?: "")
+    }
     var acceptedTerms by remember { mutableStateOf(false) }
 
     // Estados para controlar los Bottom Sheets de omisión
@@ -237,7 +266,7 @@ fun WizardMascotaPerdida(onBackToSelector: () -> Unit) {
                     4 -> PasoDescripcion(description) { description = it }
                     5 -> PasoContacto(
                         nombre = contactName, telefono = contactPhone, correo = contactEmail, aceptado = acceptedTerms,
-                        onNombre = { contactName = it }, onTelefono = { contactPhone = it }, onCorreo = { contactEmail = it }, onAceptado = { acceptedTerms = it }
+                        onAceptado = { acceptedTerms = it }
                     )
                     6 -> PantallaHecho(onBackToSelector)
                 }
@@ -1013,7 +1042,7 @@ fun PasoDescripcion(descripcion: String, onDescripcion: (String) -> Unit) {
 @Composable
 fun PasoContacto(
     nombre: String, telefono: String, correo: String, aceptado: Boolean,
-    onNombre: (String) -> Unit, onTelefono: (String) -> Unit, onCorreo: (String) -> Unit, onAceptado: (Boolean) -> Unit
+    onAceptado: (Boolean) -> Unit
 ) {
     var terminosAceptados by remember { mutableStateOf(false) }
     var mostrarModalTerminos by remember { mutableStateOf(false) }
@@ -1028,75 +1057,82 @@ fun PasoContacto(
             .padding(bottom = 16.dp)
     ) {
         Text(
-            "Información de contacto",
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            "¿Cómo te contactarán si encuentran a tu mascota?",
+            text = "Los siguientes datos se mostrarán públicamente en tu publicación para que puedan contactarte si encuentran a tu mascota.",
+            fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 13.sp
+            lineHeight = 18.sp
         )
-        Spacer(Modifier.height(24.dp))
 
-        Text(
-            "Nombre de contacto",
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        OutlinedTextField(
-            value = nombre,
-            onValueChange = onNombre,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
             )
-        )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
 
-        Spacer(Modifier.height(12.dp))
+                Column {
+                    Text(
+                        text = "Nombre de contacto",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
 
-        Text(
-            "Teléfono / Celular",
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        OutlinedTextField(
-            value = telefono,
-            onValueChange = onTelefono,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-            )
-        )
+                    Spacer(modifier = Modifier.height(4.dp))
 
-        Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = nombre,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
 
-        Text(
-            "Correo electrónico",
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        OutlinedTextField(
-            value = correo,
-            onValueChange = onCorreo,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-            )
-        )
+                HorizontalDivider()
+
+                Column {
+                    Text(
+                        text = "Teléfono / Celular",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = telefono,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+
+                HorizontalDivider()
+
+                Column {
+                    Text(
+                        text = "Correo electrónico",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = correo,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+            }
+        }
 
         Spacer(Modifier.height(20.dp))
 

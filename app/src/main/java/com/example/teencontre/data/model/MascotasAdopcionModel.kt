@@ -5,6 +5,8 @@ import com.google.gson.annotations.SerializedName
 data class MascotasAdopcionModel(
     @SerializedName("id") val id: Int = 0,
     @SerializedName("idUsuario") val idUsuario: Int = 0,
+    // 🐕 ¡NUEVO CAMPO AGREGADO AQUÍ! Mapeado con tu base de datos SQL
+    @SerializedName("nombreMascota") val nombreMascota: String = "",
     @SerializedName("especie") val especie: String = "",
     @SerializedName("genero") val genero: String = "",
     @SerializedName("raza") val raza: String = "",

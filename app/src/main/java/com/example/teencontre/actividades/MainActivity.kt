@@ -393,12 +393,16 @@ fun LoginScreen(
                                             id = usuario.id,
                                             email = usuario.email ?: correo,
                                             nombreOrg = usuario.nombreOrg ?: "",
+                                            telefono = usuario.telefono!!,
                                             ruc = usuario.ruc ?: "",
                                             direccion = usuario.direccion ?: "",
                                             esVerificada = usuario.esVerificada ?: false
                                         )
                                     )
                                 }
+
+
+
 
                                 Log.d("LOGIN", "Login exitoso")
                                 onLoginSuccess()
@@ -510,7 +514,7 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // FORMULARIO DINÁMICO
+        // --- FORMULARIO DINÁMICO DE REGISTRO ---
         if (isOrganization) {
             LoginInput(
                 label = "Nombre",
@@ -521,6 +525,7 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // 📱 Campo Teléfono para Organización (Añadido)
             LoginInput(
                 label = "Número de teléfono",
                 value = telefono,
@@ -581,7 +586,7 @@ fun RegisterScreen(
             )
         }
 
-        // CAMPOS COMUNES
+// --- CAMPOS COMUNES ---
         Spacer(modifier = Modifier.height(16.dp))
         LoginInput(
             label = "Contraseña",
@@ -599,17 +604,18 @@ fun RegisterScreen(
             isPassword = true
         )
 
-        // MENSAJE DE ESPERA PARA ONS
+// --- MENSAJE DE ESPERA PARA ORGANIZACIONES ---
         if (isOrganization) {
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "confirmación tardará máximo 1 semana.",
+                text = "La confirmación tardará máximo 1 semana.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 20.dp)
             )
         }
+
 
         Spacer(modifier = Modifier.height(30.dp))
 

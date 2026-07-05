@@ -25,6 +25,7 @@ import java.util.Locale
 import java.util.TimeZone
 import android.content.Context
 import android.net.Uri
+import android.provider.ContactsContract
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.rememberScrollState
@@ -44,6 +45,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 // IMPORTACIONES DE TU PAQUETE DE DATOS
 import com.example.teencontre.data.local.DatabaseHelper
+import com.example.teencontre.data.model.BaseUser
+import com.example.teencontre.data.model.Organizacion
+import com.example.teencontre.data.model.Usuario
 import com.example.teencontre.data.remote.RetrofitClient
 import com.example.teencontre.sharedprefs.PreferenceManager
 import kotlinx.coroutines.Dispatchers
@@ -67,9 +71,8 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
     val usuario = prefs.getLoggedUser()
 
     val sharedPreferences = remember { context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE) }
-    val dbHelper = remember { DatabaseHelper(context) }
     val coroutineScope = rememberCoroutineScope()
-
+    val dbHelper = remember { DatabaseHelper(context) }
     var step by remember { mutableIntStateOf(1) }
     val totalSteps = 5
 
@@ -89,9 +92,38 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
     var selectedDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var selectedPhotos by remember { mutableStateOf<List<Uri>>(emptyList()) }
 
-    var contactName by remember { mutableStateOf(sharedPreferences.getString("userName", "") ?: "") }
-    var contactPhone by remember { mutableStateOf(sharedPreferences.getString("userPhone", "") ?: "") }
-    var contactEmail by remember { mutableStateOf(sharedPreferences.getString("userEmail", "") ?: "") }
+
+    val usuarioActual = usuario as? BaseUser
+
+// Extraemos el Nombre (mapeando según la clase)
+    var contactName by remember(usuarioActual) {
+        mutableStateOf(
+            when (usuarioActual) {
+                is Usuario -> usuarioActual.nombre
+                is Organizacion -> usuarioActual.nombreOrg
+                else -> ""
+            }
+        )
+    }
+
+// 🔥 ¡AHORA SÍ! Ambos tienen teléfono asignado directamente
+    var contactPhone by remember(usuarioActual) {
+        mutableStateOf(
+            when (usuarioActual) {
+                is Usuario -> usuarioActual.telefono
+                is Organizacion -> usuarioActual.telefono // 👈 Ahora jalará el teléfono de la ORG
+                else -> ""
+            }
+        )
+    }
+
+// Ambos heredan el email de BaseUser
+    var contactEmail by remember(usuarioActual) {
+        mutableStateOf(usuarioActual?.email ?: "")
+    }
+
+
+
     var acceptedTerms by remember { mutableStateOf(false) }
 
     val sdf = SimpleDateFormat("yyyy-MM-dd", LocalLocale.current.platformLocale)
@@ -217,8 +249,11 @@ fun WizardEncontreAnuncio(onBackToSelector: () -> Unit) {
                     )
                     4 -> PasoDescripcionEncontrada(description) { description = it }
                     5 -> PasoContactoEncontrada(
-                        contactName, contactPhone, contactEmail, acceptedTerms,
-                        { contactName = it }, { contactPhone = it }, { contactEmail = it }, { acceptedTerms = it }
+                        name = contactName,
+                        phone = contactPhone,
+                        email = contactEmail,
+                        accepted = acceptedTerms,
+                        onAccepted = { acceptedTerms = it }
                     )
                     6 -> PantallaHechoEncontrada(onBackToSelector)
                 }
@@ -833,9 +868,6 @@ fun PasoContactoEncontrada(
     phone: String,
     email: String,
     accepted: Boolean,
-    onName: (String) -> Unit,
-    onPhone: (String) -> Unit,
-    onEmail: (String) -> Unit,
     onAccepted: (Boolean) -> Unit
 ) {
     var terminosAceptados by remember { mutableStateOf(accepted) }
@@ -852,83 +884,54 @@ fun PasoContactoEncontrada(
             .padding(bottom = 16.dp) // Espaciado preventivo al final del scroll
     ) {
         Text(
-            text = "Información de contacto",
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            text = "¿Cómo te contactará el dueño legítimo para recuperar a la mascota?",
+            text = "Los siguientes datos se mostrarán públicamente en tu publicación para que el dueño de la mascota pueda contactarte directamente.",
+            fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 13.sp
+            lineHeight = 18.sp
         )
-        Spacer(Modifier.height(24.dp))
 
-        Text(
-            text = "Nombre de contacto",
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        OutlinedTextField(
-            value = name,
-            onValueChange = onName,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
             )
-        )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Nombre
+                Column {
+                    Text(text = "Nombre de contacto", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = name.ifEmpty { "No registrado" }, fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground)
+                }
 
-        Spacer(Modifier.height(12.dp))
+                HorizontalDivider()
 
-        Text(
-            text = "Teléfono / Celular",
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        OutlinedTextField(
-            value = phone,
-            onValueChange = onPhone,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-            )
-        )
+                // Teléfono
+                Column {
+                    Text(text = "Teléfono / Celular", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = phone.ifEmpty { "No registrado" }, fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground)
+                }
 
-        Spacer(Modifier.height(12.dp))
+                HorizontalDivider()
 
-        Text(
-            text = "Correo electrónico",
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        OutlinedTextField(
-            value = email,
-            onValueChange = onEmail,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-            )
-        )
+                // Correo
+                Column {
+                    Text(text = "Correo electrónico", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = email.ifEmpty { "No registrado" }, fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Spacer(modifier = Modifier.height(20.dp))
 
         Spacer(Modifier.height(20.dp))
 

@@ -37,6 +37,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetalleAnuncioScreen(
@@ -50,6 +51,8 @@ fun DetalleAnuncioScreen(
     val nombreUsuarioReal = prefs.getUserName() ?: "Usuario Anónimo"
     val scope = rememberCoroutineScope()
 
+    val tieneNombre = !publicacion?.nombreMascota.isNullOrBlank()
+
     val listaComentarios = remember { mutableStateListOf<Comentario>() }
     var nuevoComentarioTexto by remember { mutableStateOf("") }
     var cargandoComentarios by remember { mutableStateOf(true) }
@@ -59,7 +62,7 @@ fun DetalleAnuncioScreen(
             try {
                 cargandoComentarios = true
                 val response = RetrofitClient.instance.obtenerComentarios(
-                    idPublicacion = publicacion.id,
+                    idPublicacion = publicacion.id ?: 0,
                     tipoPublicacion = publicacion.tipo ?: "PERDIDA"
                 )
                 if (response.isSuccessful) {
@@ -83,6 +86,8 @@ fun DetalleAnuncioScreen(
         }
         return
     }
+
+    val tipoUpper = publicacion.tipo?.uppercase() ?: "PUBLICACIÓN"
 
     Scaffold(
         topBar = {
@@ -126,19 +131,32 @@ fun DetalleAnuncioScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = publicacion.nombreMascota ?: publicacion.especie,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (tieneNombre) {
+                            publicacion.nombreMascota!!
+                        } else {
+                            if (tipoUpper == "ADOPCION") "Mascota en Adopción" else (publicacion.especie ?: "Mascota")
+                        },
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
 
-                // Determinamos los colores del Chip dinámicamente según el tipo
-                val (chipTextColor, chipBgColor) = when (publicacion.tipo?.uppercase()) {
-                    "ADOPCION" -> Pair(Color(0xFF0288D1), Color(0xFFE1F5FE)) // Celeste
-                    "PERDIDA" -> Pair(Color(0xFF7B1FA2), Color(0xFFF3E5F5))  // Morado
-                    "ENCONTRADO" -> Pair(Color(0xFF388E3C), Color(0xFFE8F5E9)) // Verde
+                    if (!tieneNombre) {
+                        Text(
+                            text = "${publicacion.especie ?: "Mascota"} • ${publicacion.raza ?: "Mestizo"}",
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                val (chipTextColor, chipBgColor) = when (tipoUpper) {
+                    "ADOPCION" -> Pair(Color(0xFF0288D1), Color(0xFFE1F5FE))
+                    "PERDIDA" -> Pair(Color(0xFF7B1FA2), Color(0xFFF3E5F5))
+                    "ENCONTRADO", "ENCONTRADA" -> Pair(Color(0xFF2E7D32), Color(0xFFE8F5E9)) // Verde Correcto
                     else -> Pair(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
                 }
 
@@ -168,7 +186,7 @@ fun DetalleAnuncioScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // --- Ficha Técnica (Datos de la Mascota) ---
+            // --- Ficha Técnica ---
             Text("Detalles de la mascota", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -177,10 +195,12 @@ fun DetalleAnuncioScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    DatoItem(icon = Icons.Default.Pets, label = "Especie", value = publicacion.especie)
-                    DatoItem(icon = Icons.Default.Info, label = "Género", value = publicacion.genero)
+                    DatoItem(icon = Icons.Default.Pets, label = "Especie", value = publicacion.especie ?: "No especificada")
+                    DatoItem(icon = Icons.Default.Info, label = "Género", value = publicacion.genero ?: "No especificado")
                     publicacion.raza?.let { DatoItem(icon = Icons.Default.Pets, label = "Raza", value = it) }
-                    publicacion.fecha?.let { DatoItem(icon = Icons.Default.DateRange, label = "Fecha", value = it) }
+
+                    val fechaMostrar = publicacion.fecha ?: publicacion.fechaRegistro
+                    fechaMostrar?.let { DatoItem(icon = Icons.Default.DateRange, label = "Fecha", value = it) }
 
                     val lugarTexto = if (!publicacion.lugar.isNullOrBlank()) publicacion.lugar else "No especificada"
                     DatoItem(icon = Icons.Default.LocationOn, label = "Ubicación", value = lugarTexto)
@@ -204,8 +224,10 @@ fun DetalleAnuncioScreen(
                 }
             }
 
-            // --- Sección Adopción ---
-            if (publicacion.tipo == "ADOPCION") {
+            // ====================================================================
+            // SECCIÓN ADOPCIÓN (Filtrada inteligentemente y adaptada a Booleans)
+            // ====================================================================
+            if (tipoUpper == "ADOPCION") {
                 Spacer(modifier = Modifier.height(20.dp))
                 Text("Salud y Estado", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -215,6 +237,7 @@ fun DetalleAnuncioScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        // Evaluación adaptada a datos de tipo Boolean? (true == "Sí")
                         DatoItem(icon = Icons.Default.Info, label = "Vacunado", value = if (publicacion.vacunado == true) "Sí" else "No")
                         DatoItem(icon = Icons.Default.Info, label = "Esterilizado", value = if (publicacion.esterilizado == true) "Sí" else "No")
                         DatoItem(icon = Icons.Default.Info, label = "Desparasitado", value = if (publicacion.desparasitado == true) "Sí" else "No")
@@ -239,9 +262,7 @@ fun DetalleAnuncioScreen(
                 }
             }
 
-            // ====================================================================
-            // SECCIÓN DE COMENTARIOS
-            // ====================================================================
+            // --- Sección de Comentarios ---
             Spacer(modifier = Modifier.height(32.dp))
             HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(20.dp))
@@ -254,7 +275,6 @@ fun DetalleAnuncioScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Input de Comentarios
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -288,7 +308,7 @@ fun DetalleAnuncioScreen(
                             scope.launch {
                                 try {
                                     val comentarioDto = Comentario(
-                                        id_publicacion = publicacion.id,
+                                        id_publicacion = publicacion.id ?: 0,
                                         tipo_publicacion = publicacion.tipo ?: "PERDIDA",
                                         nombre_usuario = nombreUsuarioReal,
                                         mensaje = comentarioEnviado,
@@ -321,7 +341,6 @@ fun DetalleAnuncioScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Lista o estados de carga de comentarios
             if (cargandoComentarios) {
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
@@ -348,7 +367,6 @@ fun DetalleAnuncioScreen(
     }
 }
 
-// Componente helper para ordenar las filas de detalles
 @Composable
 fun DatoItem(icon: ImageVector, label: String, value: String) {
     Row(

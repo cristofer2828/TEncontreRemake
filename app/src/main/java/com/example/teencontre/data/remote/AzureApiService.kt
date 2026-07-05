@@ -111,6 +111,7 @@ interface AzureApiService {
     @POST("api/Publicaciones/insertar_adopcion.php")
     suspend fun registrarMascotaAdopcion(
         @Part("idUsuario") idUsuario: RequestBody,
+        @Part("nombreMascota") nombreMascota: RequestBody,
         @Part("especie") especie: RequestBody,
         @Part("genero") genero: RequestBody,
         @Part("raza") raza: RequestBody,
@@ -125,6 +126,7 @@ interface AzureApiService {
         @Part("telefono") telefono: RequestBody,
         @Part("correo") correo: RequestBody
     ): Response<ApiResponse>
+
 
     @GET("api/Publicaciones/obtener_adopciones_usuario.php")
     suspend fun obtenerAdopcionesPorUsuario(

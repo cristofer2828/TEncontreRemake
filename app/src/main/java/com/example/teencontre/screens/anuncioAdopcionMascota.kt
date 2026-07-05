@@ -37,6 +37,10 @@ import com.example.teencontre.data.model.MascotasAdopcionModel
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.teencontre.data.model.BaseUser
+import com.example.teencontre.data.model.Organizacion
+import com.example.teencontre.data.model.Usuario
 import com.example.teencontre.data.remote.RetrofitClient
 import com.example.teencontre.sharedprefs.PreferenceManager
 import kotlinx.coroutines.Dispatchers
@@ -65,31 +69,50 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
     var step by remember { mutableIntStateOf(1) }
     val totalSteps = 5
 
-    // --- ESTADOS DE CONTROL DE INTERFAZ ---
-    // Ya no requerimos los diálogos de omisión si los pasos son obligatorios
-    // var showPhotoDialog by remember { mutableStateOf(false) }
-    // var showDescDialog by remember { mutableStateOf(false) }
-
     // --- ESTADOS DE DATOS DE LA MASCOTA ---
-    var nombreMascota by remember { mutableStateOf("") }
-    var razaMascota by remember { mutableStateOf("") }
-    var petType by remember { mutableStateOf("Perro") }
-    var gender by remember { mutableStateOf("Hembra") }
-    var edadMascota by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
+    var nombreMascota by rememberSaveable { mutableStateOf("") }
+    var razaMascota by rememberSaveable { mutableStateOf("") }
+    var petType by rememberSaveable { mutableStateOf("Perro") }
+    var gender by rememberSaveable { mutableStateOf("Hembra") }
+    var edadMascota by rememberSaveable { mutableStateOf("") }
+    var description by rememberSaveable { mutableStateOf("") }
     var selectedPhotos by remember { mutableStateOf<List<Uri>>(emptyList()) }
 
-    // --- ATRIBUTOS EXCLUSIVOS DE ADOPCIÓN ---
-    var vacunado by remember { mutableStateOf(false) }
-    var esterilizado by remember { mutableStateOf(false) }
-    var desparasitado by remember { mutableStateOf(false) }
-    var tamano by remember { mutableStateOf("Mediano") }
-    var temperamento by remember { mutableStateOf("Juguetón") }
+// --- ATRIBUTOS EXCLUSIVOS DE ADOPCIÓN (CON MEMORIA AL RETROCEDER) ---
+    var vacunado by rememberSaveable { mutableStateOf(false) }
+    var esterilizado by rememberSaveable { mutableStateOf(false) }
+    var desparasitado by rememberSaveable { mutableStateOf(false) }
+    var tamano by rememberSaveable { mutableStateOf("Mediano") }
+    var temperamento by rememberSaveable { mutableStateOf("Juguetón") }
 
-    // --- ESTADOS DE CONTACTO ---
-    var contactName by remember { mutableStateOf(sharedPreferences.getString("userName", "") ?: "") }
-    var contactPhone by remember { mutableStateOf(sharedPreferences.getString("userPhone", "") ?: "") }
-    var contactEmail by remember { mutableStateOf(sharedPreferences.getString("userEmail", "") ?: "") }
+    val usuarioActual = usuario as? BaseUser
+
+// Extraemos el Nombre (mapeando según la clase)
+    var contactName by remember(usuarioActual) {
+        mutableStateOf(
+            when (usuarioActual) {
+                is Usuario -> usuarioActual.nombre
+                is Organizacion -> usuarioActual.nombreOrg
+                else -> ""
+            }
+        )
+    }
+
+// 🔥 ¡AHORA SÍ! Ambos tienen teléfono asignado directamente
+    var contactPhone by remember(usuarioActual) {
+        mutableStateOf(
+            when (usuarioActual) {
+                is Usuario -> usuarioActual.telefono
+                is Organizacion -> usuarioActual.telefono
+                else -> ""
+            }
+        )
+    }
+
+// Ambos heredan el email de BaseUser
+    var contactEmail by remember(usuarioActual) {
+        mutableStateOf(usuarioActual?.email ?: "")
+    }
     var acceptedTerms by remember { mutableStateOf(false) }
 
     val apiService = RetrofitClient.instance
@@ -98,14 +121,14 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
     // VALIDACIÓN DINÁMICA DEL PASO ACTUAL
     // =================================================================
     val isCurrentStepValid = remember(
-        step, edadMascota, selectedPhotos, vacunado, desparasitado, esterilizado,
+        step, nombreMascota, edadMascota, selectedPhotos, vacunado, desparasitado, esterilizado,
         description, contactName, contactPhone, contactEmail, acceptedTerms
     ) {
         when (step) {
-            1 -> edadMascota.isNotBlank() // Obligatorio poner la fecha/edad aproximada
-            2 -> selectedPhotos.isNotEmpty() // Obligatorio por lo menos una foto
-            3 -> vacunado // Requisito: que esté vacunado (Switch en true)
-            4 -> description.isNotBlank() // Obligatoria la descripción
+            1 -> nombreMascota.isNotBlank() && edadMascota.isNotBlank()
+            2 -> selectedPhotos.isNotEmpty()
+            3 -> true
+            4 -> description.isNotBlank()
             5 -> contactName.isNotBlank() && contactPhone.isNotBlank() && contactEmail.isNotBlank() && acceptedTerms
             else -> true
         }
@@ -145,6 +168,7 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                             }.trim()
 
                                             val idUsuarioPart = RequestBody.create(textType, idUsuarioReal)
+                                            val nombreMascotaPart = RequestBody.create(textType, nombreMascota)
                                             val especiePart = RequestBody.create(textType, petType)
                                             val generoPart = RequestBody.create(textType, gender)
                                             val razaPart = RequestBody.create(textType, if (razaMascota.isNotBlank()) razaMascota else "Mestizo")
@@ -178,10 +202,21 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                             }
 
                                             val response = apiService.registrarMascotaAdopcion(
-                                                idUsuarioPart, especiePart, generoPart, razaPart,
-                                                vacunadoPart, esterilizadoPart, desparasitadoPart,
-                                                tamanoPart, temperamentoPart, fotoPart, descPart,
-                                                nombreOrgPart, telefonoPart, correoPart
+                                                idUsuarioPart,
+                                                nombreMascotaPart,
+                                                especiePart,
+                                                generoPart,
+                                                razaPart,
+                                                vacunadoPart,
+                                                esterilizadoPart,
+                                                desparasitadoPart,
+                                                tamanoPart,
+                                                temperamentoPart,
+                                                fotoPart,
+                                                descPart,
+                                                nombreOrgPart,
+                                                telefonoPart,
+                                                correoPart
                                             )
 
                                             withContext(Dispatchers.Main) {
@@ -195,6 +230,7 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                                     val mascotaAdopcionLocal = MascotasAdopcionModel(
                                                         id = 0,
                                                         idUsuario = usuario?.id ?: 0,
+                                                        nombreMascota = nombreMascota,
                                                         especie = petType,
                                                         genero = gender,
                                                         raza = if (razaMascota.isNotBlank()) razaMascota else "Mestizo",
@@ -203,16 +239,14 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                                         desparasitado = desparasitado,
                                                         tamano = tamano,
                                                         temperamento = temperamento,
-
-                                                        // ✅ ASIGNACIÓN: Pasamos la conversión en texto en vez del ByteArray directo
                                                         foto = fotoStringParaModel,
-
                                                         descripcion = descripcionCompleta,
                                                         nombreOrganizacion = if (contactName.isNotBlank()) contactName else "Particular",
                                                         telefono = contactPhone,
                                                         correo = contactEmail
                                                     )
                                                     dbHelper.insertAdopcion(mascotaAdopcionLocal)
+
 
                                                     Toast.makeText(context, "Publicación de adopción creada en Azure con éxito", Toast.LENGTH_SHORT).show()
                                                     step = 6
@@ -324,13 +358,25 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                     )
                     2 -> PasoFotoAdopcion(selectedPhotos) { selectedPhotos = it }
                     3 -> PasoSaludYFisicoAdopcion(
-                        vacunado, esterilizado, desparasitado, tamano, temperamento,
-                        { vacunado = it }, { esterilizado = it }, { desparasitado = it }, { tamano = it }, { temperamento = it }
+                        vacunado = vacunado,
+                        esterilizado = esterilizado,
+                        desparasitado = desparasitado,
+                        tamano = tamano,
+                        temperamento = temperamento,
+                        onVacunadoChanged = { vacunado = it },
+                        onEsterilizadoChanged = { esterilizado = it },
+                        onDesparasitadoChanged = { desparasitado = it },
+                        onTamanoChanged = { tamano = it },
+                        onTemperamentoChanged = { temperamento = it }
                     )
+
                     4 -> PasoDescripcionAdopcion(description) { description = it }
                     5 -> PasoContactoAdopcion(
-                        name = contactName, phone = contactPhone, email = contactEmail, accepted = acceptedTerms,
-                        onName = { contactName = it }, onPhone = { contactPhone = it }, onEmail = { contactEmail = it }, onAccepted = { acceptedTerms = it }
+                        name = contactName,
+                        phone = contactPhone,
+                        email = contactEmail,
+                        accepted = acceptedTerms,
+                        onAccepted = { acceptedTerms = it }
                     )
                     6 -> PantallaHechoAdopcion(onBackToSelector)
                 }
@@ -786,9 +832,6 @@ fun PasoContactoAdopcion(
     phone: String,
     email: String,
     accepted: Boolean,
-    onName: (String) -> Unit,
-    onPhone: (String) -> Unit,
-    onEmail: (String) -> Unit,
     onAccepted: (Boolean) -> Unit
 ) {
     var terminosAceptados by remember { mutableStateOf(false) }
@@ -809,49 +852,85 @@ fun PasoContactoAdopcion(
         )
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text("Tu Nombre o Albergue", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-        OutlinedTextField(
-            value = name,
-            onValueChange = onName,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                focusedBorderColor = FigmaBlue
-            )
+        Text(
+            text = "Los siguientes datos se mostrarán públicamente en tu publicación para que las personas interesadas en adoptar puedan comunicarse contigo.",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 18.sp
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
-        Text("Tu Teléfono", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-        OutlinedTextField(
-            value = phone,
-            onValueChange = onPhone,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                focusedBorderColor = FigmaBlue
-            )
-        )
+        Spacer(modifier = Modifier.height(20.dp))
 
-        Spacer(modifier = Modifier.height(12.dp))
-        Text("Tu Email", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-        OutlinedTextField(
-            value = email,
-            onValueChange = onEmail,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                focusedBorderColor = FigmaBlue
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
             )
-        )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+
+                Column {
+                    Text(
+                        text = "Nombre o Albergue",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = FigmaBlue
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = name,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                HorizontalDivider()
+
+                Column {
+                    Text(
+                        text = "Teléfono",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = FigmaBlue
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = phone,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                HorizontalDivider()
+
+                Column {
+                    Text(
+                        text = "Correo electrónico",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = FigmaBlue
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = email,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
 
         Spacer(modifier = Modifier.height(20.dp))
 

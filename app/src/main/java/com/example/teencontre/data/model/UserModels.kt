@@ -23,6 +23,7 @@ data class Organizacion(
     override val id: Int,
     override val email: String,
     val nombreOrg: String,
+    val telefono: String,
     val ruc: String,
     val direccion: String,
     val esVerificada: Boolean = false
@@ -66,17 +67,19 @@ data class RegisterRequest(
 data class LoginRequest(val email: String, val contrasena: String)
 
 // Respuesta del servidor al loguear
+// Respuesta del servidor al loguear
 data class LoginResponse(
     val id: Int,
     val email: String,
     val tipo: String,
     val nombre: String?,
-    val telefono: String?,
+    val telefono: String,
     val nombreOrg: String?,
     val ruc: String?,
     val direccion: String?,
     val esVerificada: Boolean?
 )
+
 
 data class RegisterResponse(
     val success: Boolean,

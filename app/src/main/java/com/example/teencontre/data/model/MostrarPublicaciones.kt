@@ -5,22 +5,24 @@ import com.google.gson.annotations.SerializedName
 data class MostrarPublicaciones(
 
     @SerializedName("Id")
-    val id: Int,
+    val id: Int?,
 
     @SerializedName("IdUsuario")
-    val idUsuario: Int,
+    val idUsuario: Int?,
 
-    @SerializedName("Tipo")
-    val tipo: String,
+    // CORREGIDO: 'tipo' en minúscula tal cual tu base de datos y seguro contra nulos
+    @SerializedName("tipo")
+    val tipo: String?,
 
-    @SerializedName("NombreMascota")
+    // CORREGIDO: 'nombreMascota' con 'n' minúscula tal cual tu base de datos
+    @SerializedName("nombreMascota")
     val nombreMascota: String?,
 
     @SerializedName("Especie")
-    val especie: String,
+    val especie: String?,
 
     @SerializedName("Genero")
-    val genero: String,
+    val genero: String?,
 
     @SerializedName("Raza")
     val raza: String?,
@@ -32,27 +34,28 @@ data class MostrarPublicaciones(
     val lugar: String?,
 
     @SerializedName("Descripcion")
-    val descripcion: String,
+    val descripcion: String?,
 
     @SerializedName("Fecha")
     val fecha: String?,
 
     @SerializedName("FechaRegistro")
-    val fechaRegistro: String,
+    val fechaRegistro: String?,
 
-    @SerializedName("Vacunado")
+    @SerializedName("vacunado")
     val vacunado: Boolean?,
 
-    @SerializedName("Esterilizado")
+    @SerializedName("esterilizado")
     val esterilizado: Boolean?,
 
-    @SerializedName("Desparasitado")
+    @SerializedName("desparasitado")
     val desparasitado: Boolean?,
 
-    @SerializedName("Tamano")
+
+    @SerializedName("tamano")
     val tamano: String?,
 
-    @SerializedName("Temperamento")
+    @SerializedName("temperamento")
     val temperamento: String?,
 
     @SerializedName("NombreOrganizacion")

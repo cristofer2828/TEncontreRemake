@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
 object RetrofitClient {
 
     private const val BASE_URL =
-        "https://tencontre-hkfrcbh9d6fhepdu.canadacentral-01.azurewebsites.net/"
+        "https://tencontre-hkfrcbh9d6fhepdu.canadacentral-01.azurewebsites.net"
 
     val instance: AzureApiService by lazy {
 
@@ -29,25 +29,31 @@ object RetrofitClient {
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
 
+        // Lógica de conversión reutilizable para primitivos y objetos mutables
+        val booleanDeserializer = JsonDeserializer<Boolean> { json, _, _ ->
+            if (json.isJsonPrimitive) {
+                val primitive = json.asJsonPrimitive
+
+                if (primitive.isBoolean)
+                    return@JsonDeserializer primitive.asBoolean
+
+                if (primitive.isNumber)
+                    return@JsonDeserializer primitive.asInt == 1
+
+                if (primitive.isString)
+                    return@JsonDeserializer (
+                            primitive.asString == "1" ||
+                                    primitive.asString.lowercase() == "true"
+                            )
+            }
+            false
+        }
+
         val customGson = GsonBuilder()
-            .registerTypeAdapter(Boolean::class.java, JsonDeserializer<Boolean> { json, _, _ ->
-                if (json.isJsonPrimitive) {
-                    val primitive = json.asJsonPrimitive
-
-                    if (primitive.isBoolean)
-                        return@JsonDeserializer primitive.asBoolean
-
-                    if (primitive.isNumber)
-                        return@JsonDeserializer primitive.asInt == 1
-
-                    if (primitive.isString)
-                        return@JsonDeserializer (
-                                primitive.asString == "1" ||
-                                        primitive.asString.lowercase() == "true"
-                                )
-                }
-                false
-            })
+            // 1. Registra para tipos primitivos de Kotlin/Java (boolean)
+            .registerTypeAdapter(Boolean::class.java, booleanDeserializer)
+            // 2. Registra para tipos Objetos/Nullables en Kotlin (Boolean?) 🌟¡CLAVE!🌟
+            .registerTypeAdapter(Boolean::class.javaObjectType, booleanDeserializer)
             .create()
 
         Retrofit.Builder()

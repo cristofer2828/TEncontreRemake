@@ -1,11 +1,9 @@
 package com.example.teencontre.actividades
+
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -20,9 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -65,6 +61,7 @@ fun EncuentranosScreen(
     LaunchedEffect(Unit) {
         publicacionesViewModel.cargarPublicaciones()
     }
+
     val publicaciones = publicacionesViewModel.publicaciones
     var mostrarFiltros by remember { mutableStateOf(false) }
 
@@ -77,15 +74,17 @@ fun EncuentranosScreen(
     var otro by remember { mutableStateOf(false) }
 
     val publicacionesFiltradas = publicaciones.filter { publicacion ->
+        val tipoUpper = publicacion.tipo?.uppercase() ?: ""
         val coincideEstado = (!desaparecido && !encontrado && !adopcion)
-                || (desaparecido && publicacion.tipo == "PERDIDA")
-                || (encontrado && publicacion.tipo == "ENCONTRADA")
-                || (adopcion && publicacion.tipo == "ADOPCION")
+                || (desaparecido && tipoUpper == "PERDIDA")
+                || (encontrado && (tipoUpper == "ENCONTRADO" || tipoUpper == "ENCONTRADA"))
+                || (adopcion && tipoUpper == "ADOPCION")
 
+        val especieStr = publicacion.especie ?: ""
         val coincideTipo = (!perro && !gato && !otro)
-                || (perro && publicacion.especie.equals("Perro", true))
-                || (gato && publicacion.especie.equals("Gato", true))
-                || (otro && !publicacion.especie.equals("Perro", true) && !publicacion.especie.equals("Gato", true))
+                || (perro && especieStr.equals("Perro", true))
+                || (gato && especieStr.equals("Gato", true))
+                || (otro && !especieStr.equals("Perro", true) && !especieStr.equals("Gato", true))
 
         coincideEstado && coincideTipo
     }
@@ -118,7 +117,6 @@ fun EncuentranosScreen(
             )
         }
     ) { paddingValues ->
-        // Modificado la columna principal para que consuma de manera inteligente los paddingValues del Scaffold
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -126,7 +124,7 @@ fun EncuentranosScreen(
                     top = paddingValues.calculateTopPadding(),
                     start = 0.dp,
                     end = 0.dp,
-                    bottom = 0.dp // Dejamos el bottom en 0 aquí porque se lo daremos al LazyColumn
+                    bottom = 0.dp
                 )
                 .background(MaterialTheme.colorScheme.background)
         ) {
@@ -149,7 +147,7 @@ fun EncuentranosScreen(
                 )
             }
 
-            // FILTROS
+            // SECCIÓN DE FILTROS
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -175,7 +173,6 @@ fun EncuentranosScreen(
                 }
             }
 
-            // CONTENIDO DESPLEGABLE
             if (mostrarFiltros) {
                 Card(
                     modifier = Modifier
@@ -214,9 +211,6 @@ fun EncuentranosScreen(
 
             val publicacionSeleccionadaViewModel: PublicacionSeleccionadaViewModel = viewModel()
 
-            // 🛠️ SOLUCIÓN RESPONSIVA:
-            // 1. Agregado .weight(1f) para que se expanda dinámicamente ocupando solo el espacio disponible.
-            // 2. Modificado el 'bottom' del contentPadding para que tome el tamaño real e inteligente que ocupa la BottomNavigationBar más un espacio extra opcional (16.dp)
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -229,10 +223,11 @@ fun EncuentranosScreen(
                 )
             ) {
                 items(publicacionesFiltradas) { publicacion ->
-                    val colorEstado = when (publicacion.tipo) {
-                        "PERDIDA" -> Color(0xFF5E35B1)
-                        "ENCONTRADA" -> Color(0xFF43A047)
-                        else -> Color(0xFF4FC3F7)
+                    val tipoUpper = publicacion.tipo?.uppercase() ?: "PUBLICACIÓN"
+                    val colorEstado = when (tipoUpper) {
+                        "PERDIDA" -> Color(0xFF7B1FA2)
+                        "ENCONTRADO", "ENCONTRADA" -> Color(0xFF2E7D32) // Verde Correcto
+                        else -> Color(0xFF0288D1)
                     }
 
                     Card(
@@ -271,7 +266,7 @@ fun EncuentranosScreen(
                                     color = colorEstado.copy(alpha = 0.15f)
                                 ) {
                                     Text(
-                                        text = publicacion.tipo,
+                                        text = publicacion.tipo ?: "PUBLICACIÓN",
                                         color = colorEstado,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                         fontSize = 11.sp,
@@ -281,8 +276,13 @@ fun EncuentranosScreen(
 
                                 Spacer(modifier = Modifier.height(6.dp))
 
+                                val tieneNombre = !publicacion.nombreMascota.isNullOrBlank()
                                 Text(
-                                    text = publicacion.nombreMascota ?: publicacion.especie,
+                                    text = if (tieneNombre) {
+                                        publicacion.nombreMascota!!
+                                    } else {
+                                        if (tipoUpper == "ADOPCION") "Mascota en Adopción" else (publicacion.especie ?: "Mascota")
+                                    },
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -291,7 +291,7 @@ fun EncuentranosScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
 
                                 Text(
-                                    text = publicacion.descripcion,
+                                    text = publicacion.descripcion ?: "Sin descripción.",
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
                                     fontSize = 13.sp,
@@ -306,7 +306,7 @@ fun EncuentranosScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
 
-                                publicacion.fecha?.let {
+                                publicacion.fechaRegistro?.let {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = "📅 $it",
@@ -326,23 +326,25 @@ fun EncuentranosScreen(
 @Composable
 fun FiltroItem(
     texto: String,
-    checked: Boolean,
+    seleccionado: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onCheckedChange(!seleccionado) }
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            texto,
-            modifier = Modifier.weight(1f)
-        )
-
         Checkbox(
-            checked = checked,
+            checked = seleccionado,
             onCheckedChange = onCheckedChange
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = texto,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
