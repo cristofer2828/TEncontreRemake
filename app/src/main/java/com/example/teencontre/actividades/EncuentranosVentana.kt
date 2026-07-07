@@ -75,10 +75,11 @@ fun EncuentranosScreen(
 
     val publicacionesFiltradas = publicaciones.filter { publicacion ->
         val tipoUpper = publicacion.tipo?.uppercase() ?: ""
-        val coincideEstado = (!desaparecido && !encontrado && !adopcion)
-                || (desaparecido && tipoUpper == "PERDIDA")
-                || (encontrado && (tipoUpper == "ENCONTRADO" || tipoUpper == "ENCONTRADA"))
-                || (adopcion && tipoUpper == "ADOPCION")
+        val coincideEstado =
+            (!desaparecido && !encontrado && !adopcion)
+                    || (desaparecido && tipoUpper in listOf("PERDIDA", "PERDIDO"))
+                    || (encontrado && tipoUpper in listOf("ENCONTRADO", "ENCONTRADA"))
+                    || (adopcion && tipoUpper == "ADOPCION")
 
         val especieStr = publicacion.especie ?: ""
         val coincideTipo = (!perro && !gato && !otro)
@@ -224,10 +225,26 @@ fun EncuentranosScreen(
             ) {
                 items(publicacionesFiltradas) { publicacion ->
                     val tipoUpper = publicacion.tipo?.uppercase() ?: "PUBLICACIÓN"
-                    val colorEstado = when (tipoUpper) {
-                        "PERDIDA" -> Color(0xFF7B1FA2)
-                        "ENCONTRADO", "ENCONTRADA" -> Color(0xFF2E7D32) // Verde Correcto
-                        else -> Color(0xFF0288D1)
+                    val (colorTexto, colorFondo) = when (tipoUpper) {
+                        "PERDIDA", "PERDIDO" -> Pair(
+                            Color(0xFF6A1B9A),      // Morado
+                            Color(0xFFEDE7F6)       // Fondo lila claro
+                        )
+
+                        "ENCONTRADO", "ENCONTRADA" -> Pair(
+                            Color(0xFF2E7D32),      // Verde
+                            Color(0xFFE8F5E9)       // Verde claro
+                        )
+
+                        "ADOPCION" -> Pair(
+                            Color(0xFF0288D1),      // Azul
+                            Color(0xFFE3F2FD)       // Azul claro
+                        )
+
+                        else -> Pair(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.surfaceVariant
+                        )
                     }
 
                     Card(
@@ -263,11 +280,11 @@ fun EncuentranosScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Surface(
                                     shape = RoundedCornerShape(50),
-                                    color = colorEstado.copy(alpha = 0.15f)
+                                    color = colorFondo
                                 ) {
                                     Text(
                                         text = publicacion.tipo ?: "PUBLICACIÓN",
-                                        color = colorEstado,
+                                        color = colorTexto,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold

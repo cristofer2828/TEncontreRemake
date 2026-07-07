@@ -243,8 +243,17 @@ class MainActivity : ComponentActivity() {
                                     currentScreen = "mapa"
                                 }
                             )
-                            "terms_user" -> TermsFrame(title = "Términos de Usuario", content = "Contenido estándar de términos de usuario...", onBack = { currentScreen = "register" })
-                            "terms_ons" -> TermsFrame(title = "Términos para Organizaciones", content = "Contenido estándar de términos para organizaciones...", onBack = { currentScreen = "register" })
+                            "terms_user" -> TermsFrame(
+                                title = "Términos y Condiciones",
+                                content = textoTerminosUsuario,
+                                onBack = { currentScreen = "register" }
+                            )
+
+                            "terms_ons" -> TermsFrame(
+                                title = "Términos para Organizaciones",
+                                content = textoTerminosONS,
+                                onBack = { currentScreen = "register" }
+                            )
                         }
                     }
                 }
@@ -479,6 +488,7 @@ fun RegisterScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 30.dp)
+            .navigationBarsPadding()
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -529,8 +539,15 @@ fun RegisterScreen(
             LoginInput(
                 label = "Número de teléfono",
                 value = telefono,
-                onValueChange = { telefono = it },
-                placeholder = "+51"
+                onValueChange = {
+                    telefono = it
+                        .filter { c -> c.isDigit() }
+                        .take(9)
+                },
+                placeholder = "+51",
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number
+                )
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -547,8 +564,23 @@ fun RegisterScreen(
             LoginInput(
                 label = "RUC",
                 value = ruc,
-                onValueChange = { ruc = it },
-                placeholder = "RUC"
+                onValueChange = { input ->
+                    val nuevo = input
+                        .filter { it.isDigit() }
+                        .take(11)
+
+                    ruc = when {
+                        nuevo.length < 2 -> nuevo // Mientras escribe el prefijo
+                        nuevo.startsWith("10") ||
+                                nuevo.startsWith("15") ||
+                                nuevo.startsWith("20") -> nuevo
+                        else -> ruc // Ignora el cambio si el prefijo no es válido
+                    }
+                },
+                placeholder = "RUC",
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number
+                )
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -572,8 +604,15 @@ fun RegisterScreen(
             LoginInput(
                 label = "Número de teléfono",
                 value = telefono,
-                onValueChange = { telefono = it },
-                placeholder = "+51"
+                onValueChange = {
+                    telefono = it
+                        .filter { c -> c.isDigit() }
+                        .take(9)
+                },
+                placeholder = "+51",
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number
+                )
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -611,7 +650,7 @@ fun RegisterScreen(
                 text = "La confirmación tardará máximo 1 semana.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
-                textAlign = TextAlign.Center,
+                textAlign = TextAlign.Justify,
                 modifier = Modifier.padding(horizontal = 20.dp)
             )
         }
@@ -766,14 +805,16 @@ fun TermsFrame(title: String, content: String, onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
-            .padding(24.dp)
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 24.dp)
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
     ) {
         Spacer(modifier = Modifier.height(40.dp))
-        Text(text = title, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+        Text(text = title, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
         Spacer(modifier = Modifier.height(20.dp))
-        Text(text = content, fontSize = 15.sp, color = Color.DarkGray, lineHeight = 20.sp)
+        Text(text = content, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 24.sp)
         Spacer(modifier = Modifier.height(40.dp))
 
         Button(
@@ -788,13 +829,21 @@ fun TermsFrame(title: String, content: String, onBack: () -> Unit) {
 }
 
 val textoTerminosUsuario = """
-    1. USO RESPONSABLE: Esta plataforma es exclusivamente para facilitar la adopción y el reencuentro de mascotas.
-    
-    2. DATOS PERSONALES: Al registrarte, aceptas que tus datos de contacto sean visibles para otros usuarios cuando reportes o busques una mascota.
-    
-    3. PROHIBICIONES: Está estrictamente prohibido lucrar o vender animales a través de esta aplicación.
-    
-    4. COMUNIDAD: Nos reservamos el derecho de eliminar cuentas que realicen reportes falsos.
+1. USO RESPONSABLE
+
+Esta plataforma es exclusivamente para facilitar la adopción y el reencuentro de mascotas.
+
+2. DATOS PERSONALES
+
+Al registrarte, aceptas que tus datos de contacto sean visibles para otros usuarios cuando reportes o busques una mascota.
+
+3. PROHIBICIONES
+
+Está estrictamente prohibido lucrar o vender animales a través de esta aplicación.
+
+4. COMUNIDAD
+
+Nos reservamos el derecho de eliminar cuentas que realicen reportes falsos.
 """.trimIndent()
 
 val textoTerminosONS = """
