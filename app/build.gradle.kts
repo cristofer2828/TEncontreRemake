@@ -80,4 +80,5 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
     //para cambiar la barra de nav a modos
     implementation("androidx.activity:activity-compose:1.9.0")
+
 }

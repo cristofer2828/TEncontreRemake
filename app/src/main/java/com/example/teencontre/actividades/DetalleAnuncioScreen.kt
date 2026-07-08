@@ -249,16 +249,36 @@ fun DetalleAnuncioScreen(
             }
 
             // --- Botón de Mapa ---
-            if (!publicacion.lugar.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(24.dp))
-                Button(
-                    onClick = { onVerUbicacion(publicacion.lugar) },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.LocationOn, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Ver ubicación en el Mapa", fontWeight = FontWeight.Bold)
+            if (
+                tipoUpper == "PERDIDO" ||
+                tipoUpper == "ENCONTRADO" ||
+                tipoUpper == "ENCONTRADA"
+            ) {
+
+                if (!publicacion.lugar.isNullOrBlank()) {
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = { onVerUbicacion(publicacion.lugar) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            "Ver ubicación en el Mapa",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 

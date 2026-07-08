@@ -79,7 +79,7 @@ fun EncuentranosScreen(
             (!desaparecido && !encontrado && !adopcion)
                     || (desaparecido && tipoUpper in listOf("PERDIDA", "PERDIDO"))
                     || (encontrado && tipoUpper in listOf("ENCONTRADO", "ENCONTRADA"))
-                    || (adopcion && tipoUpper == "ADOPCION")
+                    || (adopcion && tipoUpper == "ADOPCIÓN")
 
         val especieStr = publicacion.especie ?: ""
         val coincideTipo = (!perro && !gato && !otro)
@@ -227,18 +227,18 @@ fun EncuentranosScreen(
                     val tipoUpper = publicacion.tipo?.uppercase() ?: "PUBLICACIÓN"
                     val (colorTexto, colorFondo) = when (tipoUpper) {
                         "PERDIDA", "PERDIDO" -> Pair(
-                            Color(0xFF6A1B9A),      // Morado
-                            Color(0xFFEDE7F6)       // Fondo lila claro
+                            Color(0xFF6A1B9A),
+                            Color(0xFFEDE7F6)
                         )
 
                         "ENCONTRADO", "ENCONTRADA" -> Pair(
-                            Color(0xFF2E7D32),      // Verde
-                            Color(0xFFE8F5E9)       // Verde claro
+                            Color(0xFF2E7D32),
+                            Color(0xFFE8F5E9)
                         )
 
-                        "ADOPCION" -> Pair(
-                            Color(0xFF0288D1),      // Azul
-                            Color(0xFFE3F2FD)       // Azul claro
+                        "ADOPCIÓN" -> Pair(
+                            Color(0xFF0288D1),
+                            Color(0xFFE3F2FD)
                         )
 
                         else -> Pair(
@@ -296,9 +296,9 @@ fun EncuentranosScreen(
                                 val tieneNombre = !publicacion.nombreMascota.isNullOrBlank()
                                 Text(
                                     text = if (tieneNombre) {
-                                        publicacion.nombreMascota!!
+                                        publicacion.nombreMascota
                                     } else {
-                                        if (tipoUpper == "ADOPCION") "Mascota en Adopción" else (publicacion.especie ?: "Mascota")
+                                        if (tipoUpper == "ADOPCIÓN") "Mascota en Adopción" else (publicacion.especie ?: "Mascota")
                                     },
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,

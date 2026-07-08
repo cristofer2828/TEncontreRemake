@@ -124,7 +124,8 @@ interface AzureApiService {
         @Part("descripcion") descripcion: RequestBody,
         @Part("nombreOrganizacion") nombreOrganizacion: RequestBody,
         @Part("telefono") telefono: RequestBody,
-        @Part("correo") correo: RequestBody
+        @Part("correo") correo: RequestBody,
+        @Part("ubicacion") ubicacion: RequestBody
     ): Response<ApiResponse>
 
 

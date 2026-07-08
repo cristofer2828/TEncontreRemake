@@ -13,7 +13,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     companion object {
         private const val DATABASE_NAME = "teencontre_app.db"
-        private const val DATABASE_VERSION = 4
+        private const val DATABASE_VERSION = 7
 
         // ---- TABLA PERDIDOS ----
         const val TABLE_PERDIDOS = "addPerdido"
@@ -62,6 +62,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         const val ADOPCION_ORGANIZACION = "nombreOrganizacion"
         const val ADOPCION_TELEFONO = "telefono"
         const val ADOPCION_CORREO = "correo"
+        const val ADOPCION_ESTADO = "estado"
+        const val ADOPCION_UBICACION = "ubicacion"
     }
 
     override fun onCreate(db: SQLiteDatabase?) {
@@ -71,7 +73,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 $PERDIDO_USER_ID INTEGER,
                 $PERDIDO_NOMBRE TEXT, $PERDIDO_ESPECIE TEXT, $PERDIDO_GENERO TEXT, $PERDIDO_RAZA TEXT,
                 $PERDIDO_FOTO BLOB, $PERDIDO_FECHA TEXT, $PERDIDO_LUGAR TEXT, $PERDIDO_DESCRIPCION TEXT,
-                $PERDIDO_CONTACTO TEXT, $PERDIDO_TELEFONO TEXT, $PERDIDO_CORREO TEXT
+                $PERDIDO_CONTACTO TEXT, $PERDIDO_TELEFONO TEXT, $PERDIDO_CORREO TEXT,$ADOPCION_UBICACION TEXT
             )
         """.trimIndent()
 
@@ -92,7 +94,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 $ADOPCION_ESPECIE TEXT, $ADOPCION_GENERO TEXT, $ADOPCION_RAZA TEXT,
                 $ADOPCION_VACUNADO INTEGER, $ADOPCION_ESTERILIZADO INTEGER, $ADOPCION_DESPARASITADO INTEGER,
                 $ADOPCION_TAMANO TEXT, $ADOPCION_TEMPERAMENTO TEXT, $ADOPCION_FOTO BLOB,
-                $ADOPCION_DESCRIPCION TEXT, $ADOPCION_ORGANIZACION TEXT, $ADOPCION_TELEFONO TEXT, $ADOPCION_CORREO TEXT
+                $ADOPCION_DESCRIPCION TEXT, $ADOPCION_ORGANIZACION TEXT, $ADOPCION_TELEFONO TEXT, $ADOPCION_CORREO TEXT, $ADOPCION_ESTADO TEXT
             )
         """.trimIndent()
 
@@ -262,6 +264,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     fun insertAdopcion(a: MascotasAdopcionModel): Long {
         val db = this.writableDatabase
+
         val values = ContentValues().apply {
             put(ADOPCION_USER_ID, a.idUsuario)
             put(ADOPCION_ESPECIE, a.especie)
@@ -272,15 +275,16 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             put(ADOPCION_DESPARASITADO, if (a.desparasitado) 1 else 0)
             put(ADOPCION_TAMANO, a.tamano)
             put(ADOPCION_TEMPERAMENTO, a.temperamento)
-            put(ADOPCION_FOTO, a.foto as? ByteArray)
+            put(ADOPCION_FOTO, a.foto)
             put(ADOPCION_DESCRIPCION, a.descripcion)
             put(ADOPCION_ORGANIZACION, a.nombreOrganizacion)
             put(ADOPCION_TELEFONO, a.telefono)
             put(ADOPCION_CORREO, a.correo)
+            put(ADOPCION_ESTADO, a.estado)
+            put(ADOPCION_UBICACION, a.ubicacion)
         }
+
         return db.insert(TABLE_ADOPCION, null, values)
     }
-
-
     }
 

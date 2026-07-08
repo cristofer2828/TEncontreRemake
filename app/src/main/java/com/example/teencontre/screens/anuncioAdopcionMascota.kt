@@ -113,6 +113,24 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
     var contactEmail by remember(usuarioActual) {
         mutableStateOf(usuarioActual?.email ?: "")
     }
+    var ubicacionPublicacion by remember(usuarioActual) {
+
+        mutableStateOf(
+            when(usuarioActual) {
+
+                is Organizacion -> {
+                    if(usuarioActual.esVerificada) {
+                        usuarioActual.direccion
+                    } else {
+                        ""
+                    }
+                }
+
+                else -> ""
+            }
+        )
+
+    }
     var acceptedTerms by remember { mutableStateOf(false) }
 
     val apiService = RetrofitClient.instance
@@ -183,7 +201,10 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                             val nombreOrgPart = RequestBody.create(textType, if (contactName.isNotBlank()) contactName else "Particular")
                                             val telefonoPart = RequestBody.create(textType, contactPhone)
                                             val correoPart = RequestBody.create(textType, contactEmail)
-
+                                            val ubicacionPart = RequestBody.create(
+                                                textType,
+                                                ubicacionPublicacion
+                                            )
                                             var fotoPart: MultipartBody.Part? = null
                                             var fotoBytesParaSQLite: ByteArray? = null
 
@@ -216,7 +237,8 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                                 descPart,
                                                 nombreOrgPart,
                                                 telefonoPart,
-                                                correoPart
+                                                correoPart,
+                                                ubicacionPart
                                             )
 
                                             withContext(Dispatchers.Main) {
@@ -241,9 +263,10 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                                         temperamento = temperamento,
                                                         foto = fotoStringParaModel,
                                                         descripcion = descripcionCompleta,
-                                                        nombreOrganizacion = if (contactName.isNotBlank()) contactName else "Particular",
+                                                        nombreOrganizacion = contactName,
                                                         telefono = contactPhone,
-                                                        correo = contactEmail
+                                                        correo = contactEmail,
+                                                        ubicacion = ubicacionPublicacion
                                                     )
                                                     dbHelper.insertAdopcion(mascotaAdopcionLocal)
 
@@ -383,8 +406,6 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
             }
         }
     }
-
-
 }
 
 // =================================================================

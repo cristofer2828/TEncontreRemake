@@ -24,7 +24,10 @@ data class MascotasAdopcionModel(
     @SerializedName("descripcion") val descripcion: String = "",
     @SerializedName("nombreOrganizacion") val nombreOrganizacion: String = "",
     @SerializedName("telefono") val telefono: String = "",
-    @SerializedName("correo") val correo: String = ""
+    @SerializedName("correo") val correo: String = "",
+        @SerializedName("estado") val estado: String = "",
+    @SerializedName("ubicacion")
+val ubicacion: String = ""
 ) {
     // Campos alternativos que se llenan AUTOMÁTICAMENTE si Azure manda "1" o "0" en el JSON
     @SerializedName("vacunado_string") private val vacunadoStr: String? = null

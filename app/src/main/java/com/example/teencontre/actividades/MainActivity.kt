@@ -76,6 +76,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import com.example.teencontre.data.model.UpdateUserRequest
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import coil.compose.AsyncImage
@@ -224,7 +226,21 @@ class MainActivity : ComponentActivity() {
                                     prefs.clearSession()
                                     currentScreen = "login"
                                 }
-                            )
+                            )"adoptados" -> AdoptadosScreen(
+                            prefs = prefs,
+                            onBack = {
+                                currentScreen = "profile"
+                            },
+                            onNavigate = { route ->
+                                when {
+                                    route.startsWith("editar_adopcion/") -> {
+                                        selectedMascotaId =
+                                            route.substringAfter("editar_adopcion/").toIntOrNull() ?: 0
+                                        currentScreen = "editar_adopcion"
+                                    }
+                                }
+                            }
+                        )
                             "encuentranos" -> EncuentranosScreen(
                                 onProfileClick = { currentScreen = "profile" },
                                 onPublishClick = { currentScreen = "selector" },
@@ -1366,6 +1382,7 @@ fun ProfileScreen(
                                 )
                                 put(DatabaseHelper.ADOPCION_TELEFONO, mascota.telefono ?: "")
                                 put(DatabaseHelper.ADOPCION_CORREO, mascota.correo ?: "")
+                                put(DatabaseHelper.ADOPCION_ESTADO, mascota.estado)
                             }
                             insertWithOnConflict(
                                 DatabaseHelper.TABLE_ADOPCION,
@@ -1462,7 +1479,10 @@ fun ProfileScreen(
                             descripcion = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_DESCRIPCION)),
                             nombreOrganizacion = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ORGANIZACION)),
                             telefono = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TELEFONO)),
-                            correo = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_CORREO))
+                            correo = cursorA.getString(cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_CORREO)),
+                            estado = cursorA.getString(
+                                    cursorA.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ESTADO)
+                                    ) ?: "Adopcion"
                         ))
                     } while (cursorA.moveToNext())
                 }
@@ -1517,7 +1537,10 @@ fun ProfileScreen(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-                ProfileOptionsCard(onNavigate = onNavigate)
+                ProfileOptionsCard(
+                    esOrganizacion = usuarioLogueado is Organizacion,
+                    onNavigate = onNavigate
+                )
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Text(text = "Mis anuncios", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
@@ -1633,13 +1656,21 @@ fun ProfileScreen(
                     )
                 }
 
-                items(listaAdopciones) { mascota ->
+                items(
+                    listaAdopciones.filter {
+                        it.estado.equals("Adopcion", true)
+                    }
+                ) { mascota ->
                     val esp = mascota.especie.ifEmpty { "Mascota" }
                     val raz = mascota.raza.ifEmpty { "Mestizo" }
                     AdItemCard(
                         description = "$esp ($raz)",
                         status = "ADOPCION",
-                        location = mascota.nombreOrganizacion.ifEmpty { "Particular" },
+                        location = if (mascota.ubicacion.isNotBlank()) {
+                            "📍 ${mascota.ubicacion}"
+                        } else {
+                            mascota.nombreOrganizacion.ifBlank { "Particular" }
+                        },
                         foto = mascota.foto,
                         onEdit = { onNavigate("editar_adopcion/${mascota.id}") },
                         onDelete = {
@@ -1723,9 +1754,11 @@ fun AdItemCard(
     status: String,
     location: String,
     foto: Any?,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
+    extraInfo: String? = null,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null
+){
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1735,6 +1768,7 @@ fun AdItemCard(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
+
         Row(
             modifier = Modifier
                 .padding(12.dp)
@@ -1778,23 +1812,19 @@ fun AdItemCard(
                                 contentScale = ContentScale.Crop
                             )
                         } else {
-                            Text(
-                                "🐾",
-                                modifier = Modifier.align(Alignment.Center)
-                            )
+                            Text("🐾", modifier = Modifier.align(Alignment.Center))
                         }
                     }
 
                     else -> {
-                        Text(
-                            "🐾",
-                            modifier = Modifier.align(Alignment.Center)
-                        )
+                        Text("🐾", modifier = Modifier.align(Alignment.Center))
                     }
                 }
             }
 
+
             Spacer(modifier = Modifier.width(12.dp))
+
 
             Column(
                 modifier = Modifier.weight(1f)
@@ -1806,9 +1836,11 @@ fun AdItemCard(
                     fontSize = 14.sp
                 )
 
+
                 Text(
                     text = status.uppercase(),
-                    color = when (status.uppercase()) {
+                    color = when(status.uppercase()) {
+                        "ADOPTADO" -> Color(0xFF1565C0)
                         "PERDIDA" -> Color(0xFF7C4DFF)
                         "ENCONTRADA" -> Color(0xFF4CAF50)
                         "ADOPCION" -> Color(0xFF2196F3)
@@ -1818,34 +1850,67 @@ fun AdItemCard(
                     fontWeight = FontWeight.Bold
                 )
 
+
+                extraInfo?.let {
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = it,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+
                 Text(
-                    text = location,
-                    color = Color.Gray,
-                    fontSize = 11.sp
+                    text = "📍 $location",
+                    fontSize = 12.sp,
+                    color = Color.Gray
                 )
+
             }
+
 
             Column {
-                IconButton(onClick = onEdit) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Editar"
-                    )
+
+                onEdit?.let {
+
+                    IconButton(
+                        onClick = it
+                    ) {
+
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Editar"
+                        )
+                    }
                 }
 
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Eliminar"
-                    )
+
+                onDelete?.let {
+
+                    IconButton(
+                        onClick = it
+                    ) {
+
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Eliminar"
+                        )
+                    }
                 }
+
             }
+
         }
     }
 }
 
-    @Composable
-    fun ProfileOptionsCard(onNavigate: (String) -> Unit) {
+@Composable
+fun ProfileOptionsCard(
+    esOrganizacion: Boolean,
+    onNavigate: (String) -> Unit
+) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1859,10 +1924,11 @@ fun AdItemCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(all = 20.dp),
+                    .padding(20.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
                 ProfileOptionItem(
                     icon = android.R.drawable.ic_menu_preferences,
                     label = "Ajustes",
@@ -1874,6 +1940,17 @@ fun AdItemCard(
                     label = "Crear",
                     onClick = { onNavigate("selector") }
                 )
+
+                if (esOrganizacion) {
+
+                    ProfileOptionItem(
+                        icon = android.R.drawable.star_big_on,
+                        label = "Adoptados",
+                        onClick = {
+                            onNavigate("adoptados")
+                        }
+                    )
+                }
             }
         }
     }
@@ -2235,3 +2312,320 @@ fun SettingsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AdoptadosScreen(
+    prefs: PreferenceManager,
+    onBack: () -> Unit,
+    onNavigate: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val usuario = remember { prefs.getLoggedUser() }
+    val idUsuario = usuario?.id ?: 0
+
+    var listaAdoptados by remember {
+        mutableStateOf<List<MascotasAdopcionModel>>(emptyList())
+    }
+
+    LaunchedEffect(Unit) {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+
+                val response =
+                    RetrofitClient.instance.obtenerAdopcionesPorUsuario(idUsuario)
+
+                if (response.isSuccessful) {
+
+                    val lista = response.body() ?: emptyList()
+
+                    withContext(Dispatchers.Main) {
+
+                        listaAdoptados =
+                            lista.filter {
+                                it.estado.equals(
+                                    "Adoptado",
+                                    ignoreCase = true,
+                                )
+                            }
+                    }
+                }
+
+            } catch (e: Exception) {
+
+                Log.e(
+                    "ADOPTADOS",
+                    e.message ?: ""
+                )
+            }
+        }
+    }
+
+    Scaffold(
+
+        topBar = {
+
+            TopAppBar(
+
+                title = {
+                    Text(
+                        "Mascotas Adoptadas",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+
+                navigationIcon = {
+
+                    IconButton(
+                        onClick = onBack
+                    ) {
+
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Volver"
+                        )
+                    }
+                }
+            )
+        }
+
+    ) { padding ->
+
+        if (listaAdoptados.isEmpty()) {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+
+                Text(
+                    "Aún no tienes mascotas adoptadas.",
+                    fontSize = 18.sp,
+                    color = Color.Gray
+                )
+            }
+
+        } else {
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+
+                items(listaAdoptados) { mascota ->
+
+                    AdoptadoCard(
+                        mascota = mascota
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdoptadoCard(
+    mascota: MascotasAdopcionModel
+) {
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 3.dp
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        )
+    ) {
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+
+
+            // CABECERA
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+
+                Box(
+                    modifier = Modifier
+                        .size(95.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.LightGray)
+                ) {
+
+                    when (mascota.foto) {
+
+                        is String -> {
+                            AsyncImage(
+                                model = mascota.foto,
+                                contentDescription = "Foto mascota",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+
+                        else -> {
+                            Text(
+                                "🐾",
+                                modifier = Modifier.align(Alignment.Center),
+                                fontSize = 28.sp
+                            )
+                        }
+                    }
+                }
+
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+
+
+                    Text(
+                        text = mascota.nombreMascota,
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFE3F2FD)
+                    ) {
+
+                        Text(
+                            text = "ADOPTADO",
+                            modifier = Modifier.padding(
+                                horizontal = 12.dp,
+                                vertical = 5.dp
+                            ),
+                            color = Color(0xFF1565C0),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+
+            HorizontalDivider()
+
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+
+            // INFORMACIÓN
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(
+                        alpha = 0.6f
+                    )
+                )
+            ) {
+
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+
+
+                    DatoAdoptado(
+                        "🐾 Especie",
+                        mascota.especie
+                    )
+
+                    DatoAdoptado(
+                        "🧬 Raza",
+                        mascota.raza
+                    )
+
+                    DatoAdoptado(
+                        "⚥ Género",
+                        mascota.genero
+                    )
+
+                    DatoAdoptado(
+                        "📏 Tamaño",
+                        mascota.tamano
+                    )
+
+                    DatoAdoptado(
+                        "😊 Temperamento",
+                        mascota.temperamento
+                    )
+
+                    DatoAdoptado(
+                        "💉 Vacunado",
+                        if(mascota.vacunado) "Sí" else "No"
+                    )
+
+                    DatoAdoptado(
+                        "✂️ Esterilizado",
+                        if(mascota.esterilizado) "Sí" else "No"
+                    )
+
+                    DatoAdoptado(
+                        "🪱 Desparasitado",
+                        if(mascota.desparasitado) "Sí" else "No"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DatoAdoptado(
+    titulo: String,
+    valor: String?
+) {
+
+    Row(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+
+
+        Text(
+            text = titulo,
+            modifier = Modifier.weight(0.45f),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+
+        Text(
+            text = valor ?: "No especificado",
+            modifier = Modifier.weight(0.55f),
+            fontSize = 13.sp
+        )
+    }
+}
