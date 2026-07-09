@@ -1757,7 +1757,37 @@ fun AdItemCard(
     extraInfo: String? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null
-){
+) {
+    // Estado para controlar la visibilidad del modal de confirmación
+    var showDialog by remember { mutableStateOf(false) }
+
+    // Modal de confirmación
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false }, // Se cierra si se toca fuera
+            title = {
+                Text(text = "Si, estoy seguro")
+            },
+            text = {
+                Text(text = "¿Estás seguro de que quieres eliminar esta publicación?")
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Cancelar")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDialog = false
+                        onDelete?.invoke() // Ejecuta la acción real de eliminar
+                    }
+                ) {
+                    Text("Eliminar", color = Color.Red)
+                }
+            }
+        )
+    }
 
     Card(
         modifier = Modifier
@@ -1768,23 +1798,19 @@ fun AdItemCard(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
-
         Row(
             modifier = Modifier
                 .padding(12.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             Box(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color.LightGray)
             ) {
-
                 when (foto) {
-
                     is String -> {
                         AsyncImage(
                             model = foto,
@@ -1793,17 +1819,10 @@ fun AdItemCard(
                             contentScale = ContentScale.Crop
                         )
                     }
-
                     is ByteArray -> {
-
                         val bitmap = remember(foto) {
-                            BitmapFactory.decodeByteArray(
-                                foto,
-                                0,
-                                foto.size
-                            )?.asImageBitmap()
+                            BitmapFactory.decodeByteArray(foto, 0, foto.size)?.asImageBitmap()
                         }
-
                         if (bitmap != null) {
                             Image(
                                 bitmap = bitmap,
@@ -1815,27 +1834,20 @@ fun AdItemCard(
                             Text("🐾", modifier = Modifier.align(Alignment.Center))
                         }
                     }
-
                     else -> {
                         Text("🐾", modifier = Modifier.align(Alignment.Center))
                     }
                 }
             }
 
-
             Spacer(modifier = Modifier.width(12.dp))
 
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = description,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
-
 
                 Text(
                     text = status.uppercase(),
@@ -1850,10 +1862,8 @@ fun AdItemCard(
                     fontWeight = FontWeight.Bold
                 )
 
-
                 extraInfo?.let {
                     Spacer(modifier = Modifier.height(4.dp))
-
                     Text(
                         text = it,
                         fontSize = 12.sp,
@@ -1861,24 +1871,16 @@ fun AdItemCard(
                     )
                 }
 
-
                 Text(
                     text = "📍 $location",
                     fontSize = 12.sp,
                     color = Color.Gray
                 )
-
             }
 
-
             Column {
-
                 onEdit?.let {
-
-                    IconButton(
-                        onClick = it
-                    ) {
-
+                    IconButton(onClick = it) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Editar"
@@ -1886,22 +1888,17 @@ fun AdItemCard(
                     }
                 }
 
-
                 onDelete?.let {
-
                     IconButton(
-                        onClick = it
+                        onClick = { showDialog = true } // CAMBIO: Abre el diálogo en vez de borrar directo
                     ) {
-
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Eliminar"
                         )
                     }
                 }
-
             }
-
         }
     }
 }
