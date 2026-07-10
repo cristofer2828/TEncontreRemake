@@ -111,10 +111,10 @@ interface AzureApiService {
     @POST("api/Publicaciones/insertar_adopcion.php")
     suspend fun registrarMascotaAdopcion(
         @Part("idUsuario") idUsuario: RequestBody,
-        @Part("nombreMascota") nombreMascota: RequestBody,
+        @Part("nombreMascota") nombreMascota: RequestBody?,
         @Part("especie") especie: RequestBody,
         @Part("genero") genero: RequestBody,
-        @Part("raza") raza: RequestBody,
+        @Part("raza") raza: RequestBody?,
         @Part("vacunado") vacunado: RequestBody,
         @Part("esterilizado") esterilizado: RequestBody,
         @Part("desparasitado") desparasitado: RequestBody,

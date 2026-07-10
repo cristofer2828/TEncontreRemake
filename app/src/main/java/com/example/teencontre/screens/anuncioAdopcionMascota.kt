@@ -152,7 +152,10 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
         description, contactName, contactPhone, contactEmail, acceptedTerms
     ) {
         when (step) {
-            1 -> nombreMascota.isNotBlank() && edadMascota.isNotBlank()
+            // 🌟 CORRECCIÓN: Quitamos 'nombreMascota.isNotBlank()' para que sea opcional.
+            // Ahora el botón Siguiente se habilitará aunque el nombre esté vacío, bastando solo la edad.
+            1 -> edadMascota.isNotBlank()
+
             2 -> selectedPhotos.isNotEmpty()
             3 -> true
             4 -> description.isNotBlank()
@@ -444,13 +447,20 @@ fun PasoMascotaAdopcion(
         )
         Text(
             text = "Ayuda a los futuros adoptantes a conocer a su nuevo compañero.",
+
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp
+        )
+        Text(
+            text = "Usa un nombre temporal atractivo para aumentar sus posibilidades de adopción.",
+
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp
         )
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Nombre de la mascota (Opcional)",
+                text = "Nombre de la mascota Temporal (opcional)",
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurface
