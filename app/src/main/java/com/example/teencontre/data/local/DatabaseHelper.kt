@@ -5,6 +5,7 @@ import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.util.Log
 import com.example.teencontre.data.model.MascotasAdopcionModel
 import com.example.teencontre.data.model.MascotasEncontradasModel
 import com.example.teencontre.data.model.MascotasPerdidasModel
@@ -13,7 +14,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     companion object {
         private const val DATABASE_NAME = "teencontre_app.db"
-        private const val DATABASE_VERSION = 7
+        private const val DATABASE_VERSION = 8
 
         // ---- TABLA PERDIDOS ----
         const val TABLE_PERDIDOS = "addPerdido"
@@ -264,8 +265,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     fun insertAdopcion(a: MascotasAdopcionModel): Long {
         val db = this.writableDatabase
-
         val values = ContentValues().apply {
+            put(ADOPCION_ID, a.id)
             put(ADOPCION_USER_ID, a.idUsuario)
             put(ADOPCION_ESPECIE, a.especie)
             put(ADOPCION_GENERO, a.genero)

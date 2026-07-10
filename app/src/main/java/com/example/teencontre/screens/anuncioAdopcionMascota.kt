@@ -61,6 +61,15 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { PreferenceManager(context) }
     val usuario = prefs.getLoggedUser()
+    LaunchedEffect(Unit) {
+        Log.d("LOGIN", "Usuario = $usuario")
+
+        if (usuario is Organizacion) {
+            Log.d("LOGIN", "NombreOrg = ${usuario.nombreOrg}")
+            Log.d("LOGIN", "Telefono = ${usuario.telefono}")
+            Log.d("LOGIN", "Correo = ${usuario.email}")
+        }
+    }
 
     val sharedPreferences = remember { context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE) }
     val dbHelper = remember { DatabaseHelper(context) }
@@ -198,6 +207,7 @@ fun WizardCrearAdopcion(onBackToSelector: () -> Unit) {
                                             val tamanoPart = RequestBody.create(textType, tamano)
                                             val temperamentoPart = RequestBody.create(textType, temperamento)
                                             val descPart = RequestBody.create(textType, descripcionCompleta)
+                                            Log.d("SUBIR_ADOPCION", "contactName = '$contactName'")
                                             val nombreOrgPart = RequestBody.create(textType, if (contactName.isNotBlank()) contactName else "Particular")
                                             val telefonoPart = RequestBody.create(textType, contactPhone)
                                             val correoPart = RequestBody.create(textType, contactEmail)

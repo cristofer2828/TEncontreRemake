@@ -30,7 +30,11 @@ object RetrofitClient {
             .build()
 
         // Lógica de conversión reutilizable para primitivos y objetos mutables
-        val booleanDeserializer = JsonDeserializer<Boolean> { json, _, _ ->
+        val booleanDeserializer = JsonDeserializer<Boolean?> { json, _, _ ->
+            if (json == null || json.isJsonNull) {
+                return@JsonDeserializer null
+            }
+
             if (json.isJsonPrimitive) {
                 val primitive = json.asJsonPrimitive
 
@@ -38,15 +42,15 @@ object RetrofitClient {
                     return@JsonDeserializer primitive.asBoolean
 
                 if (primitive.isNumber)
-                    return@JsonDeserializer primitive.asInt == 1
+                    return@JsonDeserializer (primitive.asInt == 1)
 
-                if (primitive.isString)
-                    return@JsonDeserializer (
-                            primitive.asString == "1" ||
-                                    primitive.asString.lowercase() == "true"
-                            )
+                if (primitive.isString) {
+                    val str = primitive.asString.lowercase()
+                    if (str == "1" || str == "true") return@JsonDeserializer true
+                    if (str == "0" || str == "false") return@JsonDeserializer false
+                }
             }
-            false
+            null // 🌟 Cambiar 'false' por 'null' para respetar los campos vacíos de tu BD
         }
 
         val customGson = GsonBuilder()

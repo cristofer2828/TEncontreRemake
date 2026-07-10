@@ -846,20 +846,22 @@ fun TermsFrame(title: String, content: String, onBack: () -> Unit) {
 
 val textoTerminosUsuario = """
 1. USO RESPONSABLE
-
 Esta plataforma es exclusivamente para facilitar la adopción y el reencuentro de mascotas.
 
 2. DATOS PERSONALES
-
 Al registrarte, aceptas que tus datos de contacto sean visibles para otros usuarios cuando reportes o busques una mascota.
 
 3. PROHIBICIONES
-
 Está estrictamente prohibido lucrar o vender animales a través de esta aplicación.
 
 4. COMUNIDAD
+Nos reservamos el derecho de eliminar cuentas que realicen reportes falsos.
+
+5. EDAD PERMITIDA
+Debes ser mayor de edad (18 años o más) para registrarte y usar esta aplicación.
 
 Nos reservamos el derecho de eliminar cuentas que realicen reportes falsos.
+
 """.trimIndent()
 
 val textoTerminosONS = """

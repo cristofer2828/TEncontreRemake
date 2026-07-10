@@ -370,7 +370,7 @@ fun EditAdopcionScreen(idMascota: Int, onBack: () -> Unit) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val coroutineScope = rememberCoroutineScope()
-
+    var nombreMascota by remember { mutableStateOf("") }
     var especie by remember { mutableStateOf("") }
     var genero by remember { mutableStateOf("") }
     var raza by remember { mutableStateOf("") }
@@ -404,6 +404,7 @@ fun EditAdopcionScreen(idMascota: Int, onBack: () -> Unit) {
                 temperamento = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TEMPERAMENTO))
                 descripcion = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_DESCRIPCION))
                 nombreOrganizacion = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_ORGANIZACION))
+                Log.d("EDIT", "NombreOrganizacion SQLite = '$nombreOrganizacion'")
                 telefono = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_TELEFONO))
                 correo = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ADOPCION_CORREO))
                 estado = cursor.getString(
@@ -434,14 +435,22 @@ fun EditAdopcionScreen(idMascota: Int, onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item { OutlinedTextField(value = especie, onValueChange = { especie = it }, label = { Text("Especie") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
+            item {
+                OutlinedTextField(
+                    value = especie,
+                    onValueChange = { especie = it },
+                    label = { Text("Especie") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = false
+                )
+            }
             item { OutlinedTextField(value = genero, onValueChange = { genero = it }, label = { Text("Género") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
             item { OutlinedTextField(value = raza, onValueChange = { raza = it }, label = { Text("Raza") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
             item { OutlinedTextField(value = tamano, onValueChange = { tamano = it }, label = { Text("Tamaño (Pequeño, Mediano, Grande)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
             item { OutlinedTextField(value = temperamento, onValueChange = { temperamento = it }, label = { Text("Temperamento (Ej: Juguetón)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
-            item { OutlinedTextField(value = nombreOrganizacion, onValueChange = { nombreOrganizacion = it }, label = { Text("Nombre de la Organización / Dueño") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
-            item { OutlinedTextField(value = telefono, onValueChange = { telefono = it }, label = { Text("Teléfono") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) }
-            item { OutlinedTextField(value = correo, onValueChange = { correo = it }, label = { Text("Correo Electrónico") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),readOnly = true) }
+            item { OutlinedTextField(value = telefono, onValueChange = { telefono = it }, label = { Text("Teléfono") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), enabled = false) }
+            item { OutlinedTextField(value = correo, onValueChange = { correo = it }, label = { Text("Correo Electrónico") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),enabled = false) }
             item {
 
                 ExposedDropdownMenuBox(
@@ -533,6 +542,7 @@ fun EditAdopcionScreen(idMascota: Int, onBack: () -> Unit) {
                         val updatedMascota = MascotasAdopcionModel(
                             id = idMascota,
                             idUsuario = usuario?.id ?: 0,
+                            nombreMascota = nombreMascota,
                             especie = especie,
                             genero = genero,
                             raza = raza,
