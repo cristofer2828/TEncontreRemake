@@ -157,10 +157,7 @@ class MainActivity : ComponentActivity() {
                             )
                             "register" -> RegisterScreen(
                                 onRegisterSuccess = { currentScreen = "login" },
-                                onBackToLogin = { currentScreen = "login" },
-                                onShowTerms = { isOrg ->
-                                    currentScreen = if (isOrg) "terms_ons" else "terms_user"
-                                }
+                                onBackToLogin = { currentScreen = "login" }
                             )
                             "selector" -> {
                                 CreateAnnouncementScreen(
@@ -479,8 +476,7 @@ fun LoginScreen(
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
-    onBackToLogin: () -> Unit,
-    onShowTerms: (Boolean) -> Unit
+    onBackToLogin: () -> Unit
 ) {
     val context = LocalContext.current
     val primaryPurple = Color(0xFF7C4DFF)
@@ -498,6 +494,9 @@ fun RegisterScreen(
 
     var ruc by remember { mutableStateOf("") }
     var direccion by remember { mutableStateOf("") }
+
+    // 🌟 NUEVO ESTADO PARA CONTROLAR LA VENTANA EMERGENTE
+    var showTermsDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -551,7 +550,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 📱 Campo Teléfono para Organización (Añadido)
             LoginInput(
                 label = "Número de teléfono",
                 value = telefono,
@@ -586,11 +584,11 @@ fun RegisterScreen(
                         .take(11)
 
                     ruc = when {
-                        nuevo.length < 2 -> nuevo // Mientras escribe el prefijo
+                        nuevo.length < 2 -> nuevo
                         nuevo.startsWith("10") ||
                                 nuevo.startsWith("15") ||
                                 nuevo.startsWith("20") -> nuevo
-                        else -> ruc // Ignora el cambio si el prefijo no es válido
+                        else -> ruc
                     }
                 },
                 placeholder = "RUC",
@@ -641,7 +639,7 @@ fun RegisterScreen(
             )
         }
 
-// --- CAMPOS COMUNES ---
+        // --- CAMPOS COMUNES ---
         Spacer(modifier = Modifier.height(16.dp))
         LoginInput(
             label = "Contraseña",
@@ -659,7 +657,7 @@ fun RegisterScreen(
             isPassword = true
         )
 
-// --- MENSAJE DE ESPERA PARA ORGANIZACIONES ---
+        // --- MENSAJE DE ESPERA PARA ORGANIZACIONES ---
         if (isOrganization) {
             Spacer(modifier = Modifier.height(24.dp))
             Text(
@@ -671,10 +669,9 @@ fun RegisterScreen(
             )
         }
 
-
         Spacer(modifier = Modifier.height(30.dp))
 
-        // TÉRMINOS Y CONDICIONES CON NAVEGACIÓN
+        // TÉRMINOS Y CONDICIONES INTERACTIVOS
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -694,7 +691,7 @@ fun RegisterScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 TextButton(
-                    onClick = { onShowTerms(isOrganization) },
+                    onClick = { showTermsDialog = true }, // 🛠️ CAMBIO: Ahora activa el diálogo emergente
                     contentPadding = PaddingValues(0.dp),
                     modifier = Modifier.height(20.dp)
                 ) {
@@ -713,7 +710,6 @@ fun RegisterScreen(
         // BOTÓN REGISTRAR
         Button(
             onClick = {
-                // 🛠️ VALIDACIÓN 1: Todos los campos deben estar completos
                 val formIncompleto = if (isOrganization) {
                     nombre.isBlank() || telefono.isBlank() || email.isBlank() ||
                             password.isBlank() || confirmPassword.isBlank() || ruc.isBlank() || direccion.isBlank()
@@ -727,7 +723,6 @@ fun RegisterScreen(
                     return@Button
                 }
 
-                // 🛠️ VALIDACIÓN 2: Las contraseñas deben ser iguales
                 if (password != confirmPassword) {
                     android.widget.Toast.makeText(context, "Las contraseñas no coinciden", android.widget.Toast.LENGTH_SHORT).show()
                     return@Button
@@ -750,17 +745,12 @@ fun RegisterScreen(
                         withContext(Dispatchers.Main) {
                             if (response.isSuccessful) {
                                 val apiResponse = response.body()
-
-                                // 🛠️ VALIDACIÓN 3: Analizar el JSON real que devuelve tu PHP
                                 if (apiResponse != null && apiResponse.success) {
-                                    Log.d("REGISTER", "Registro exitoso en la Base de Datos")
+                                    Log.d("REGISTER", "Registro exitoso")
                                     android.widget.Toast.makeText(context, "¡Registro completado!", android.widget.Toast.LENGTH_SHORT).show()
                                     onRegisterSuccess()
                                 } else {
-                                    // El servidor respondió 200 OK pero trajo un error interno (ej: Correo duplicado)
                                     val errorMsg = apiResponse?.error ?: ""
-                                    Log.e("REGISTER", "Fallo interno de registro: $errorMsg")
-
                                     if (errorMsg.contains("ya existe", ignoreCase = true) || errorMsg.contains("duplicado", ignoreCase = true)) {
                                         android.widget.Toast.makeText(context, "El correo electrónico no está disponible", android.widget.Toast.LENGTH_LONG).show()
                                     } else {
@@ -768,14 +758,11 @@ fun RegisterScreen(
                                     }
                                 }
                             } else {
-                                // Errores de servidor serios fuera de la lógica común (Ej: 404, 500)
-                                Log.e("REGISTER", "Codigo HTTP de error: ${response.code()}")
                                 android.widget.Toast.makeText(context, "Error en el servidor. Inténtelo de nuevo", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Log.e("REGISTER", "EXCEPTION", e)
                             android.widget.Toast.makeText(context, "Error de conexión con el servidor", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }
@@ -786,9 +773,7 @@ fun RegisterScreen(
                 .fillMaxWidth()
                 .height(50.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = primaryPurple
-            )
+            colors = ButtonDefaults.buttonColors(containerColor = primaryPurple)
         ) {
             Text("Registrar", fontWeight = FontWeight.Bold, color = Color.White)
         }
@@ -813,6 +798,47 @@ fun RegisterScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
+    }
+
+    // 🌟 INTERFAZ DE LA VENTANA EMERGENTE (ALERT DIALOG)
+    if (showTermsDialog) {
+        AlertDialog(
+            onDismissRequest = { showTermsDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(
+                    text = if (isOrganization) "Términos para Organizaciones" else "Términos y Condiciones",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                // Caja con scroll vertical integrado en caso de que el texto sea largo
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = if (isOrganization) textoTerminosONS else textoTerminosUsuario,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 22.sp
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showTermsDialog = false }
+                ) {
+                    Text(
+                        text = "Entendido",
+                        color = primaryPurple,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        )
     }
 }
 
@@ -1768,7 +1794,7 @@ fun AdItemCard(
         AlertDialog(
             onDismissRequest = { showDialog = false }, // Se cierra si se toca fuera
             title = {
-                Text(text = "Si, estoy seguro")
+                Text(text = "Desea eliminar la publicación")
             },
             text = {
                 Text(text = "¿Estás seguro de que quieres eliminar esta publicación?")
