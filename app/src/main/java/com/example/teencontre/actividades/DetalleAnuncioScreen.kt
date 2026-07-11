@@ -87,7 +87,19 @@ fun DetalleAnuncioScreen(
         return
     }
 
-    val tipoUpper = publicacion.tipo?.uppercase() ?: "PUBLICACIÓN"
+    val tipoUpper = publicacion.tipo?.uppercase()
+        ?.trim()
+        ?.replace("Ó", "O") ?: "PUBLICACIÓN"
+
+    // Función ultra-resistente que procesa el Any? dinámicamente convirtiéndolo a String
+    fun formatearSalud(valor: Any?): String {
+        if (valor == null) return "No especificado"
+        return when (valor.toString().trim().lowercase()) {
+            "1", "1.0", "true", "sí", "si" -> "Sí"
+            "0", "0.0", "false", "no" -> "No"
+            else -> "No especificado"
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -156,7 +168,7 @@ fun DetalleAnuncioScreen(
                 val (chipTextColor, chipBgColor) = when (tipoUpper) {
                     "ADOPCION" -> Pair(Color(0xFF0288D1), Color(0xFFE1F5FE))
                     "PERDIDA" -> Pair(Color(0xFF7B1FA2), Color(0xFFF3E5F5))
-                    "ENCONTRADO", "ENCONTRADA" -> Pair(Color(0xFF2E7D32), Color(0xFFE8F5E9)) // Verde Correcto
+                    "ENCONTRADO", "ENCONTRADA" -> Pair(Color(0xFF2E7D32), Color(0xFFE8F5E9))
                     else -> Pair(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
                 }
 
@@ -225,7 +237,7 @@ fun DetalleAnuncioScreen(
             }
 
             // ====================================================================
-            // SECCIÓN ADOPCIÓN (Filtrada inteligentemente y adaptada a Booleans)
+            // SECCIÓN ADOPCIÓN (Lee dinámicamente los campos Any? mapeados de SQL)
             // ====================================================================
             if (tipoUpper == "ADOPCION") {
                 Spacer(modifier = Modifier.height(20.dp))
@@ -237,11 +249,25 @@ fun DetalleAnuncioScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // Evaluación adaptada a datos de tipo Boolean? (true == "Sí")
-                        DatoItem(icon = Icons.Default.Info, label = "Vacunado", value = if (publicacion.vacunado == true) "Sí" else "No")
-                        DatoItem(icon = Icons.Default.Info, label = "Esterilizado", value = if (publicacion.esterilizado == true) "Sí" else "No")
-                        DatoItem(icon = Icons.Default.Info, label = "Desparasitado", value = if (publicacion.desparasitado == true) "Sí" else "No")
-                        publicacion.tamano?.let { DatoItem(icon = Icons.Default.Info, label = "Tamaño", value = it) }
+                        DatoItem(
+                            icon = Icons.Default.Info,
+                            label = "Vacunado",
+                            value = formatearSalud(publicacion.vacunado)
+                        )
+                        DatoItem(
+                            icon = Icons.Default.Info,
+                            label = "Esterilizado",
+                            value = formatearSalud(publicacion.esterilizado)
+                        )
+                        DatoItem(
+                            icon = Icons.Default.Info,
+                            label = "Desparasitado",
+                            value = formatearSalud(publicacion.desparasitado)
+                        )
+
+                        val tamanoTexto = if (!publicacion.tamano.isNullOrBlank()) publicacion.tamano else "No especificado"
+                        DatoItem(icon = Icons.Default.Info, label = "Tamaño", value = tamanoTexto)
+
                         publicacion.temperamento?.let { DatoItem(icon = Icons.Default.Info, label = "Temperamento", value = it) }
                         publicacion.nombreOrganizacion?.let { DatoItem(icon = Icons.Default.Info, label = "Organización", value = it) }
                     }
@@ -249,16 +275,9 @@ fun DetalleAnuncioScreen(
             }
 
             // --- Botón de Mapa ---
-            if (
-                tipoUpper == "PERDIDO" ||
-                tipoUpper == "ENCONTRADO" ||
-                tipoUpper == "ENCONTRADA"
-            ) {
-
+            if (tipoUpper == "PERDIDO" || tipoUpper == "ENCONTRADO" || tipoUpper == "ENCONTRADA") {
                 if (!publicacion.lugar.isNullOrBlank()) {
-
                     Spacer(modifier = Modifier.height(24.dp))
-
                     Button(
                         onClick = { onVerUbicacion(publicacion.lugar) },
                         modifier = Modifier
@@ -266,18 +285,9 @@ fun DetalleAnuncioScreen(
                             .height(50.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = null
-                        )
-
+                        Icon(imageVector = Icons.Default.LocationOn, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-
-                        Text(
-                            "Ver ubicación en el Mapa",
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("Ver ubicación en el mapa", fontWeight = FontWeight.Bold)
                     }
                 }
             }

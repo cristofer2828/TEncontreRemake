@@ -43,13 +43,13 @@ data class MostrarPublicaciones(
     val fechaRegistro: String?,
 
     @SerializedName("vacunado")
-    val vacunado: Boolean?,
+    val vacunado: Any?,
 
     @SerializedName("esterilizado")
-    val esterilizado: Boolean?,
+    val esterilizado: Any?,
 
     @SerializedName("desparasitado")
-    val desparasitado: Boolean?,
+    val desparasitado: Any?,
 
 
     @SerializedName("tamano")
