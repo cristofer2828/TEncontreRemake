@@ -1042,25 +1042,42 @@ fun PasoContactoEncontrada(
                             .verticalScroll(rememberScrollState())
                     ) {
                         Text(
-                            text = "1. USO RESPONSABLE: Esta plataforma es exclusivamente para facilitar la adopción y el reencuentro de mascotas.",
+                            text = "1. USO RESPONSABLE: Esta sección es exclusiva para reportar mascotas encontradas y agilizar su reencuentro. Si el animal tiene collar o placa, prioriza contactar los datos que aparezcan en ellos.",
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
                         )
+
                         Text(
-                            text = "2. DATOS PERSONALES: Al registrarte, aceptas que tus datos de contacto sean visibles para otros usuarios cuando reportes o busques una mascota.",
+                            text = "2. PRIVACIDAD Y CONTACTO: Al publicar, aceptas que tu información de contacto sea visible para que los posibles dueños puedan comunicarse contigo directamente.",
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
                         )
+
                         Text(
-                            text = "3. PROHIBICIONES: Está estrictamente prohibido lucrar o vender animales a través de esta aplicación.",
+                            text = "3. VERIFICACIÓN DE PROPIEDAD: Por seguridad de la mascota, exige pruebas de propiedad (fotos previas, cartilla de vacunación o señas particulares) antes de entregarla a quien reclame ser su dueño.",
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
                         )
+
                         Text(
-                            text = "4. COMUNIDAD: Nos reservamos el derecho de eliminar cuentas que realicen reportes falsos.",
+                            text = "4. GRATUIDAD ABSOLUTA: Queda estrictamente prohibido solicitar recompensas, cobrar por el resguardo o lucrar de cualquier forma con el animal encontrado.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            text = "5. MAL USO: El reporte de casos falsos, fotos inapropiadas o el intento de retención ilegal de una mascota ajena resultará en la eliminación inmediata de tu cuenta.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            text = "6. DESLINDE DE RESPONSABILIDAD: La aplicación actúa únicamente como un canal de difusión. No nos hacemos responsables por el estado de salud de la mascota, los gastos de su resguardo, ni las interacciones físicas entre los usuarios durante el reencuentro.",
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp

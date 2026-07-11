@@ -1276,6 +1276,42 @@ fun PasoContacto(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
                         )
+                        Text(
+                            "4. VERACIDAD DE LA INFORMACIÓN: El usuario se compromete a publicar fotos e información reales, actuales y exactas sobre la mascota.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+                        Text(
+                            "5. ELIMINACIÓN DE PUBLICACIONES: Es obligación del usuario eliminar la publicación de manera inmediata una vez que la mascota haya sido encontrada o el caso esté resuelto.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+                        Text(
+                            "6. CONTENIDO INAPROPIADO: Queda prohibido subir imágenes violentas, explícitas o que vulneren la sensibilidad de la comunidad.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+                        Text(
+                            "7. EXONERACIÓN DE RESPONSABILIDAD: La plataforma no se hace responsable de disputas de propiedad, estafas externas o el estado de salud de los animales.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+                        Text(
+                            "8. RECOMPENSAS: La gestión, pago o reclamo de recompensas económicas ofrecidas por los usuarios es ajena a la administración de la app.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+                        Text(
+                            "9. BAJA DE PUBLICACIONES: Nos reservamos el derecho de eliminar cualquier reporte que infrinja estas normas o reciba denuncias de la comunidad.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
                     }
                 }
             }

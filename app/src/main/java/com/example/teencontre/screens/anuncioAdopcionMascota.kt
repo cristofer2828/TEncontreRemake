@@ -1037,16 +1037,20 @@ fun PasoContactoAdopcion(
 
     // --- DIÁLOGO EMERGENTE DE TÉRMINOS ---
     if (mostrarVentanaTerminos) {
-        Dialog(onDismissRequest = { mostrarVentanaTerminos = false }) {
+        BasicAlertDialog(
+            onDismissRequest = { mostrarVentanaTerminos = false },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+        ) {
             Surface(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 6.dp // Le da una ligera elevación visual elegante
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp).fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Encabezado fijo
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1072,14 +1076,56 @@ fun PasoContactoAdopcion(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
+                    // Contenedor con Scroll e instrucciones optimizadas para evitar overflow
                     Column(
                         verticalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false) // Limita el alto máximo si el texto es muy largo
+                            .verticalScroll(rememberScrollState()) // Activa la barra de scroll vertical
+                            .padding(end = 4.dp) // Pequeño margen para que el texto no choque visualmente con el borde al scrollear
                     ) {
-                        Text("1. VERIFICACIÓN DE IDENTIDAD: Como organización, es obligatorio proporcionar un RUC válido.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 18.sp)
-                        Text("2. TIEMPO DE RESPUESTA: La confirmación de tu centro de adopción tardará un máximo de 1 semana mientras validamos tus datos.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 18.sp)
-                        Text("3. COMPROMISO: Te comprometes a garantizar el bienestar de los animales publicados y a mantener la información actualizada.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 18.sp)
-                        Text("4. PRIVACIDAD: Tu dirección y RUC serán almacenados de forma segura y usados solo para fines de transparencia institucional.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 18.sp)
+                        Text(
+                            text = "1. VERIFICACIÓN DE IDENTIDAD: Para registrar tu centro de adopción, es obligatorio proporcionar un Registro Único de Contribuyentes (RUC) válido y activo que acredite la existencia legal de tu organización.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            text = "2. PLAZO DE APROBACIÓN: Nuestro equipo validará los datos institucionales en un plazo máximo de 7 días hábiles. Tu perfil permanecerá en estado de revisión hasta completar con éxito este filtro de seguridad.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            text = "3. COMPROMISO Y ACTUALIZACIÓN: Te comprometes a velar por el bienestar físico y emocional de los animales publicados. Es tu responsabilidad marcar como 'Adoptado' cada perfil una vez que el proceso culmine para mantener la plataforma limpia.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            text = "4. PROTECCIÓN DE DATOS: La dirección física y el RUC de la organización se almacenarán de forma segura. Estos datos serán visibles en la plataforma únicamente con fines de transparencia y confianza para los adoptantes.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            text = "5. CUOTAS DE RECUPERACIÓN Y NO COMERCIALIZACIÓN: Queda estrictamente prohibida la venta de animales. Las cuotas de recuperación solicitadas por la organización deben ser transparentes, razonables y destinadas exclusivamente a cubrir gastos médicos, de esterilización o alimentación previamente justificados.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            text = "6. FILTRO DE ADOPTANTES Y RESPONSABILIDAD: La organización es la única responsable de evaluar, entrevistar y seleccionar a los adoptantes finales, así como de realizar el seguimiento post-adopción. La aplicación no interviene en la decisión final ni se hace responsable por problemas derivados del acuerdo de adopción.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
                     }
                 }
             }
