@@ -870,34 +870,36 @@ fun TermsFrame(title: String, content: String, onBack: () -> Unit) {
     }
 }
 
+
 val textoTerminosUsuario = """
-1. USO RESPONSABLE
-Esta plataforma es exclusivamente para facilitar la adopción y el reencuentro de mascotas.
+    1. USO ACEPTABLE DE LA PLATAFORMA
+    Esta aplicación tiene como único propósito facilitar la adopción responsable y el reencuentro de mascotas extraviadas. Queda estrictamente prohibido cualquier uso comercial, promocional o ajeno a esta finalidad.
 
-2. DATOS PERSONALES
-Al registrarte, aceptas que tus datos de contacto sean visibles para otros usuarios cuando reportes o busques una mascota.
+    2. TRATAMIENTO DE DATOS PERSONALES
+    Al registrarse, el usuario otorga su consentimiento expreso para que sus datos de contacto sean visibles a terceros únicamente al publicar, reportar o buscar una mascota, con el fin de facilitar la comunicación.
 
-3. PROHIBICIONES
-Está estrictamente prohibido lucrar o vender animales a través de esta aplicación.
+    3. PROHIBICIÓN DE COMERCIALIZACIÓN
+    Está estrictamente prohibida la venta, cría comercial, cobro por adopción o cualquier actividad lucrativa que involucre animales dentro de la plataforma. El incumplimiento resultará en la expulsión inmediata.
 
-4. COMUNIDAD
-Nos reservamos el derecho de eliminar cuentas que realicen reportes falsos.
+    4. MODERACIÓN Y BAJA DE CUENTAS
+    La administración se reserva el derecho de suspender o eliminar permanentemente, sin previo aviso, cualquier cuenta que publique reportes falsos, información engañosa o que atente contra el bienestar comunitario.
 
-5. EDAD PERMITIDA
-Debes ser mayor de edad (18 años o más) para registrarte y usar esta aplicación.
-
-Nos reservamos el derecho de eliminar cuentas que realicen reportes falsos.
-
+    5. REQUISITO DE EDAD MÍNIMA
+    El uso de esta plataforma está restringido exclusivamente a personas mayores de edad (18 años o más) con plena capacidad legal para contratar y asumir compromisos de adopción.
 """.trimIndent()
 
 val textoTerminosONS = """
-    1. VERIFICACIÓN DE IDENTIDAD: Como organización, es obligatorio proporcionar un RUC válido.
-    
-    2. TIEMPO DE RESPUESTA: La confirmación de tu centro de adopción tardará un máximo de 1 semana mientras validamos tus datos.
-    
-    3. COMPROMISO: Te comprometes a garantizar el bienestar de los animales publicados y a mantener la información actualizada.
-    
-    4. PRIVACIDAD: Tu dirección y RUC serán almacenados de forma segura y usados solo para fines de transparencia institucional.
+    1. VALIDACIÓN INSTITUCIONAL
+    Para registrarse como organización, es requisito obligatorio presentar un Registro Único de Contribuyentes (RUC) activo, válido y emitido a nombre de la institución.
+
+    2. PLAZO DE VERIFICACIÓN
+    El proceso de validación de datos e identidad del centro de adopción demorará un plazo máximo de siete (7) días hábiles. El acceso al perfil institucional estará condicionado a esta aprobación.
+
+    3. COMPROMISO CON EL BIENESTAR ANIMAL
+    La organización se compromete legal y éticamente a garantizar la integridad de los animales publicados, mantener su estado actualizado (disponible/adoptado) y retirar de inmediato los perfiles resueltos.
+
+    4. CONFIDENCIALIDAD Y TRANSPARENCIA
+    El RUC y la dirección fiscal provistos serán resguardados bajo estrictas medidas de seguridad digital. Estos datos se utilizarán exclusivamente para validar la legitimidad institucional y asegurar la transparencia del servicio.
 """.trimIndent()
 
 
